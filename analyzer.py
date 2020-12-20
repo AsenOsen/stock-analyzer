@@ -125,27 +125,24 @@ class Analyzer:
 			data['current']['cost']
 		))
 
-	def dumpCyclicData(self, query):
-		self.printCyclicData(self.getCyclicData(query))
-
-	def getTopHoldersInLoss(self, firstCount):
-		self.dumpCyclicData(lambda selector: selector.select(
+	def getTopHoldersInLoss(self):
+		return self.getCyclicData(lambda selector: selector.select(
 			{
 				'holders.profitableSharesRatio':{'$exists':True}
 			})
 		.sort([('holders.profitableSharesRatio', pymongo.ASCENDING)])
-		.limit(firstCount))
+		.limit(50))
 
-	def getTopPotentialIncome(self, firstCount):
-		self.dumpCyclicData(lambda selector: selector.select(
+	def getTopPotentialIncome(self):
+		return self.getCyclicData(lambda selector: selector.select(
 			{
 				'holders.avgCostToCurrentRatio':{'$exists':True}
 			})
 		.sort([('holders.avgCostToCurrentRatio', pymongo.DESCENDING)])
-		.limit(firstCount))
+		.limit(50))
 		
 	def getFallenWithSuperTrend(self):
-		self.dumpCyclicData(lambda selector: selector.select(
+		return self.getCyclicData(lambda selector: selector.select(
 			{
 				# fallen
 				'holders.profitableSharesRatio':{'$exists':True, '$lte':0.55}, 
@@ -157,7 +154,7 @@ class Analyzer:
 		)
 
 	def getBestCompaniesFallen(self):
-		self.dumpCyclicData(lambda selector: selector.select(
+		return self.getCyclicData(lambda selector: selector.select(
 			{
 				# fallen
 				'holders.profitableSharesRatio':{'$exists':True, '$lte':0.85}, 
@@ -170,7 +167,7 @@ class Analyzer:
 		)
 
 	def getBullyAttitudeWithPositiveTrend(self):
-		self.dumpCyclicData(lambda selector: selector.select(
+		return self.getCyclicData(lambda selector: selector.select(
 			{
 				# options
 				'options':{
@@ -191,7 +188,7 @@ class Analyzer:
 		)
 
 	def getBullyAttitudeWithPositiveTrendFallen(self):
-		self.dumpCyclicData(lambda selector: selector.select(
+		return self.getCyclicData(lambda selector: selector.select(
 			{
 				# options
 				'options':{
@@ -215,7 +212,7 @@ class Analyzer:
 		)
 		
 	def getSuperAttitude(self):
-		self.dumpCyclicData(lambda selector: selector.select(
+		return self.getCyclicData(lambda selector: selector.select(
 			{
 			 	# society attitude
 				'social_guess.overall.bullRatio':{'$exists':True, '$gt':0.75}, 
@@ -235,12 +232,44 @@ class Analyzer:
 			})
 		)
 
+	def dump(self, cyclicData):
+		self.printCyclicData(cyclicData)
+
+	def getOverallTickersRating(self):
+		gainers = [
+			'getTopHoldersInLoss',
+			'getTopPotentialIncome',
+			'getFallenWithSuperTrend',
+			'getBestCompaniesFallen',
+			'getBullyAttitudeWithPositiveTrend',
+			'getBullyAttitudeWithPositiveTrendFallen',
+			'getSuperAttitude'
+		]
+		indicators = {}
+		for gainer in gainers:
+			for stock in getattr(self, gainer)()['current']['stocks']:
+				if not stock['ticker'] in indicators: indicators[stock['ticker']] = []
+				indicators[stock['ticker']].append(gainer)
+		sortableSet = []
+		for ticker in indicators:
+			sortableSet.append({
+				'len': len(indicators[ticker]),
+				'indicators': indicators[ticker],
+				'ticker': ticker
+				})
+		for sortedItem in sorted(sortableSet, key=lambda x: x['len']):
+			print("%10s : %s" % (
+				"%s[%s]" % (sortedItem['ticker'], sortedItem['len']),
+				' + '.join(sortedItem['indicators'])
+			))
+
 
 analyzer = Analyzer(datetime.datetime(2020,12,5), datetime.datetime.now() - datetime.timedelta(days=1))
-#analyzer.getTopHoldersInLoss(50)
-#analyzer.getTopPotentialIncome(50)
-#analyzer.getFallenWithSuperTrend()
-#analyzer.getBestCompaniesFallen()
-#analyzer.getBullyAttitudeWithPositiveTrend()
-#analyzer.getBullyAttitudeWithPositiveTrendFallen()
-analyzer.getSuperAttitude()
+#analyzer.dump(analyzer.getTopHoldersInLoss())
+#analyzer.dump(analyzer.getTopPotentialIncome())
+#analyzer.dump(analyzer.getFallenWithSuperTrend())
+#analyzer.dump(analyzer.getBestCompaniesFallen())
+#analyzer.dump(analyzer.getBullyAttitudeWithPositiveTrend())
+#analyzer.dump(analyzer.getBullyAttitudeWithPositiveTrendFallen())
+#analyzer.dump(analyzer.getSuperAttitude())
+analyzer.getOverallTickersRating()
