@@ -125,60 +125,11 @@ class Analyzer:
 			data['current']['cost']
 		))
 
-	def getCyclicDelta1(self, query):
+	def dumpCyclicData(self, query):
 		self.printCyclicData(self.getCyclicData(query))
 
-	def getCyclicDelta2(self, query):
-		date = self.start
-		previous = []
-		tickerTable = {}
-		while date<=self.end: 
-			print("\n%s %s %s" % ("="*10, date, "="*40))
-
-			try:
-				selector = Storage(date)
-			except:
-				print("<missing date>")
-				continue
-			finally:
-				date += datetime.timedelta(days=1)
-			current = list(query(selector))
-			diff = self.getDifference(previous, current)
-			diff = self.actualizeDifference(diff, selector)
-			previous = current
-			
-			# calculate gone tickers growth
-			totalChange = 0
-			for gone in diff['gone']:
-				change = round((gone['currentCost'] / tickerTable[gone['ticker']]['currentCost'] - 1) * 100, 2) if 'currentCost' in gone else '?'
-				tickerTable[gone['ticker']] = change
-				totalChange += change if type(change)==float else 0
-			# add new tickers for futher calculation
-			for new in diff['new']:
-				tickerTable[new['ticker']] = new
-
-			print("---------- New(%s): %s\n---------- Gone(%s): %s\n---------- Total %% = %s" % (
-				len(diff['new']),
-				','.join([stock['ticker'] for stock in diff['new']]),
-				len(diff['gone']),
-				','.join([stock['ticker'] + "("+str(tickerTable[stock['ticker']])+"%)" for stock in diff['gone']]),
-				totalChange
-				))	
-
-		# calculate left growth on current
-		totalChange = 0
-		for item in previous:
-			change = round((item['currentCost'] / tickerTable[item['ticker']]['currentCost'] - 1) * 100, 2) if 'currentCost' in item else '?'
-			tickerTable[item['ticker']] = change
-			totalChange += change if type(change)==float else 0
-
-		# display current state
-		nowCount = len(previous)
-		nowData = ','.join([stock['ticker'] + "("+str(tickerTable[stock['ticker']])+"%)" for stock in previous])
-		print("\n\n%s NOW(%s) %s\n%s\n%s Total %% = %s\n\n" % ("#"*20, nowCount, "#"*20, nowData, "#"*50, totalChange))
-
 	def getTopHoldersInLoss(self, firstCount):
-		self.getCyclicDelta(lambda selector: selector.select(
+		self.dumpCyclicData(lambda selector: selector.select(
 			{
 				'holders.profitableSharesRatio':{'$exists':True}
 			})
@@ -186,7 +137,7 @@ class Analyzer:
 		.limit(firstCount))
 
 	def getTopPotentialIncome(self, firstCount):
-		self.getCyclicDelta2(lambda selector: selector.select(
+		self.dumpCyclicData(lambda selector: selector.select(
 			{
 				'holders.avgCostToCurrentRatio':{'$exists':True}
 			})
@@ -194,7 +145,7 @@ class Analyzer:
 		.limit(firstCount))
 		
 	def getFallenWithSuperTrend(self):
-		self.getCyclicDelta2(lambda selector: selector.select(
+		self.dumpCyclicData(lambda selector: selector.select(
 			{
 				# fallen
 				'holders.profitableSharesRatio':{'$exists':True, '$lte':0.55}, 
@@ -206,7 +157,7 @@ class Analyzer:
 		)
 
 	def getBestCompaniesFallen(self):
-		self.getCyclicDelta2(lambda selector: selector.select(
+		self.dumpCyclicData(lambda selector: selector.select(
 			{
 				# fallen
 				'holders.profitableSharesRatio':{'$exists':True, '$lte':0.85}, 
@@ -219,7 +170,7 @@ class Analyzer:
 		)
 
 	def getBullyAttitudeWithPositiveTrend(self):
-		self.getCyclicDelta2(lambda selector: selector.select(
+		self.dumpCyclicData(lambda selector: selector.select(
 			{
 				# options
 				'options':{
@@ -240,7 +191,7 @@ class Analyzer:
 		)
 
 	def getBullyAttitudeWithPositiveTrendFallen(self):
-		self.getCyclicDelta2(lambda selector: selector.select(
+		self.dumpCyclicData(lambda selector: selector.select(
 			{
 				# options
 				'options':{
@@ -264,7 +215,7 @@ class Analyzer:
 		)
 		
 	def getSuperAttitude(self):
-		self.getCyclicDelta2(lambda selector: selector.select(
+		self.dumpCyclicData(lambda selector: selector.select(
 			{
 			 	# society attitude
 				'social_guess.overall.bullRatio':{'$exists':True, '$gt':0.75}, 
