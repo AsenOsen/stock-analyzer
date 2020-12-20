@@ -1,0 +1,94 @@
+// search
+https://quotes-gw.webullfintech.com/api/search/list?pageSize=20&pageIndex=1&busiModel=10000&keyword=fortinet
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------- Quotes
+
+// время открытия и новости, earnings+changes
+https://quotes-gw.webullfintech.com/api/information/remind/list?tickerId=913303928&isNeedEvent=1
+
+// технические показатели (PE)
+https://quotes-gw.webullfintech.com/api/quotes/ticker/getTickerRealTime?includeSecu=1&tickerId=913303928
+
+// график стоимости во времени
+https://quotes-gw.webullfintech.com/api/quote/charts/query?period=d1&tickerIds=913303928&extendTrading=1&direction=-1
+https://quotes-gw.webullfintech.com/api/quote/charts/query?count=400&type=m1&tickerIds=913303928&extendTrading=1&direction=-1&timestamp=1606726859
+
+// ?
+https://quotes-gw.webullfintech.com/api/quote/charts/kdata/latest?count=400&type=d1&tickerIds=913303928&direction=1&timestamp=1606712100
+
+// order flow distribution
+https://quotes-gw.webullfintech.com/api/wlas/meteor/capitalflow/ticker?tickerId=913303928&showHis=true&version=1
+
+// пульс
+https://quotes-gw.webullfintech.com/api/social/feed/ticker/913303928/posts?size=200
+
+// hottest tickers
+https://quotes-gw.webullfintech.com/api/social/feed/hot/tickers
+
+// guess ticker bulls\bears
+https://quotes-gw.webullfintech.com/api/social/guess/queryGuessInfoByTicker/913255509
+
+// новости
+https://infoapi.webullfintech.com/api/information/news/v5/tickerNews/913303928?pageSize=2&currentNewsId=0
+
+--------------------------------------------------------------------------------------------------------------------------------------------------- Analysis
+
+// дни торговли
+https://quotes-gw.webullfintech.com/api/quotes/tradeCalendar/queryPeriod?exchangeCode=NSQ&endDate=2020-11-30&includeEnd=true&days=183
+
+// distribution on range
+https://quotes-gw.webullfintech.com/api/quotes/chip/query?tickerId=913324222&startDate=2020-11-01&endDate=2020-11-30
+
+// short interest
+https://quotes-gw.webullfintech.com/api/information/brief/shortInterest?tickerId=913303928
+
+// ? 
+https://quoteapi.webullfintech.com/api/wlas/analysis/portal?tickerId=913303928
+
+// прогнозы аналитиков + прогнозы на кварталы
+https://quotes-gw.webullfintech.com/api/information/securities/analysis?tickerId=913303928&type=toolkit
+https://quotes-gw.webullfintech.com/api/information/securities/analysis?tickerId=913303928&type=report
+
+// прогнозы финансовых показателей и их действительные значения
+https://quotes-gw.webullfintech.com/api/information/financial/index?tickerId=913303928
+
+// about + executives
+https://quotes-gw.webullfintech.com/api/information/stock/brief?tickerId=913303928
+
+// ?
+https://quoteapi.webullfintech.com/api/quote/v2/tickerTrends/913303928?trendType=y1
+
+--------------------------------------------------------------------------------------------------------------------------------------------------- Press Release
+
+// история дивидендов
+https://securitiesapi.webullfintech.com/api/securities/stock/v5/913256303/dividendes?hasNum=0&pageSize=20
+
+// история сплитов
+https://securitiesapi.webullfintech.com/api/securities/stock/v5/913256303/splites?hasNum=0&pageSize=20
+
+// деятельность инсайдеров
+https://quotes-gw.webullfintech.com/api/information/brief/holdersDetail?tickerId=913256303&hasNum=0&pageSize=20&type=1
+https://api.nasdaq.com/api/company/FB/insider-trades?limit=15&type=ALL&sortColumn=lastDate&sortOrder=DESC
+https://api.nasdaq.com/api/company/FB/insider-trades?limit=15&type=buys&sortColumn=lastDate&sortOrder=DESC
+https://api.nasdaq.com/api/company/FB/insider-trades?limit=15&type=sells&sortColumn=lastDate&sortOrder=DESC
+
+// institutional holding + etfs
+https://securitiesapi.webullfintech.com/api/securities/stock/v5/913324118/institutionalHolding
+
+// процентное распределение по institutions
+https://quotes-gw.webullfintech.com/api/information/brief/holdersDetail?tickerId=913324118&hasNum=0&pageSize=20&type=2
+
+// процентное распределение по etfs 
+https://securitiesapi.webullfintech.com/api/securities/stock/v5/913324118/belongEtf?hasNum=0&pageSize=20
+
+// записи SEC и прочие announcement-ы
+https://quotes-gw.webullfintech.com/api/information/securities/pack [POST]
+{"secu_announcement":{"lastAnnouncementId":"","limit":"20","tickerId":"913303928","typeIds":"104"}}
+{"secu_announcement":{"limit":"20","options":"3","tickerId":"913256135"},"secu_insiderTrading":{"hasNum":"0","pageSize":"1","tickerId":"913256135","type":"2"},"secu_stockDividend":{"hasNum":"0","pageSize":"1","tickerId":"913256135"},"secu_stockSplit":{"hasNum":"0","pageSize":"1","tickerId":"913256135"}}
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------- Options
+
+https://quotes-gw.webullfintech.com/api/quote/option/strategy/list [POST]
+{"count":20,"expireCycle":[3,2,4],"type":0,"tickerId":913303964,"direction":"all"}
