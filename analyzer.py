@@ -68,7 +68,10 @@ class Analyzer:
 			# calculate gone tickers growth
 			totalChange = 0
 			for gone in diff['gone']:
-				change = round((gone['currentCost'] / tickerTable[gone['ticker']]['currentCost'] - 1) * 100, 2) if 'currentCost' in gone else None
+				if 'currentCost' in gone and 'currentCost' in tickerTable[gone['ticker']]:
+					change = round((gone['currentCost'] / tickerTable[gone['ticker']]['currentCost'] - 1) * 100, 2)
+				else:
+					change = None
 				gone['__costChange'] = change
 				totalChange += change if change else 0
 			# add new tickers for futher calculation
@@ -91,7 +94,10 @@ class Analyzer:
 		# calculate left growth on current
 		totalChange = 0
 		for item in previous:
-			change = round((item['currentCost'] / tickerTable[item['ticker']]['currentCost'] - 1) * 100, 2) if 'currentCost' in item else None
+			if 'currentCost' in item and 'currentCost' in tickerTable[item['ticker']]:
+				change = round((item['currentCost'] / tickerTable[item['ticker']]['currentCost'] - 1) * 100, 2)
+			else:
+				change = None		
 			item['__costChange'] = change
 			totalChange += change if type(change)==float else 0
 

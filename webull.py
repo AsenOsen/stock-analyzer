@@ -152,7 +152,7 @@ class TickerInfo:
 	def fillCostDistribution(self, info):
 		endDate = datetime.datetime.now()
 		startDate = (endDate - datetime.timedelta(days=7))
-		data = self.api.webullQuotesChipQuery(self.tickerId, startDate.strftime('%G-%m-%d'), endDate.strftime('%G-%m-%d'))
+		data = self.api.webullQuotesChipQuery(self.tickerId, startDate.strftime('%Y-%m-%d'), endDate.strftime('%Y-%m-%d'))
 		if not data:
 			raise Exception('fillCostDistribution: missing distribution data')
 		if not 'data' in data or not data['data']:
@@ -427,13 +427,13 @@ class Storage:
 	def __init__(self):
 		self.client = pymongo.MongoClient('localhost', 27017)
 		self.db = self.client.webull
-		collectionName = datetime.datetime.now().strftime('tickers_%G_%m_%d')
+		collectionName = datetime.datetime.now().strftime('tickers_%Y_%m_%d')
 		self.collection = self.db[collectionName]
 		self.collection.create_index("ticker", unique=True)
 
 	def insert(self, ticker, jsonData):
 		jsonData["ticker"] = ticker
-		self.collection.update(
+		self.collection.update_one(
 			{"ticker": ticker},
 			{"$set":jsonData},
 			upsert=True)
