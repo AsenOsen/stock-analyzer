@@ -89,6 +89,3 @@ https://quotes-gw.webullfintech.com/api/information/securities/pack [POST]
 
 
 --------------------------------------------------------------------------------------------------------------------------------------------------- Options
-
-https://quotes-gw.webullfintech.com/api/quote/option/strategy/list [POST]
-{"count":20,"expireCycle":[3,2,4],"type":0,"tickerId":913303964,"direction":"all"}
