@@ -1,6 +1,7 @@
 import requests
 import json
 import datetime
+import time
 import pymongo
 import statistics
 import numpy
@@ -10,9 +11,83 @@ import tabulate
 import textwrap
 import urllib3
 
+class HttpApi:
 
-class Api:
+	def request(self, host, path, headers = {}, body = None, protocol = 'https://'):
+		headers['User-Agent'] = 'okhttp/3.12.1'
+		headers['Host'] = host
+		url = protocol + host + path
+		urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+		if not body:	
+			response = requests.get(url, headers = headers, timeout=5, verify=False).content
+		else:
+			response = requests.post(url, headers = headers, data = body, timeout=5, verify=False).content
+		return response
 
+
+class JsonApi(HttpApi):
+
+	def _getJson(self, host, path, headers = {}, body = None):
+		response = self.request(host, path, headers, body)
+		return json.loads(response) if response else None
+
+
+class TinkoffApi(JsonApi):
+
+	def tinkoffGetMarketStocks(self, token):
+		response = self._getJson("api-invest.tinkoff.ru", "/openapi/market/stocks", {
+			"Authorization":"Bearer %s" % token,
+			"Accept": "application/json"
+			}
+		)
+		return response
+
+
+class StockbeepApi(JsonApi):
+
+	# global siglethon cache
+	breakouts = None
+	trendings = None
+
+	def getBreakoutStocks(self):
+		if StockbeepApi.breakouts == None:
+			StockbeepApi.breakouts = self._getJson('stockbeep.com', f'/table-data/breakout-stocks?country=us&time-zone=-180&sort-column=sd&sort-order=desc&_={int(time.time()*1000)}')
+		return StockbeepApi.breakouts
+
+	def getTrendingStocks(self):
+		if StockbeepApi.trendings == None:
+			StockbeepApi.trendings = self._getJson('stockbeep.com', f'/table-data/trending-stocks?country=us&time-zone=-180&sort-column=sd&sort-order=desc&_={int(time.time()*1000)}')
+		return StockbeepApi.trendings
+
+class OpeninsiderApi(HttpApi):
+
+	# global siglethon cache
+	lastweekpurchases = None
+
+	def getLastWeekPurchases(self):
+		if OpeninsiderApi.lastweekpurchases == None:
+			OpeninsiderApi.lastweekpurchases = self.request('openinsider.com', '/top-insider-purchases-of-the-week', protocol='http://')
+		from bs4 import BeautifulSoup
+		soup = BeautifulSoup(OpeninsiderApi.lastweekpurchases, 'lxml')
+		table = soup.find_all("table", {"class": "tinytable"})
+		tickerStat = {}
+		for record in table[0].find_all("tr"):
+			fields = record.find_all("td")
+			if len(fields)<12:
+				continue
+			ticker = fields[3].text.strip()
+			qty = float(fields[9].text.replace(',','').strip()) 
+			bought = float(fields[12].text.replace(',','').replace('$','').strip()) 
+			if ticker not in tickerStat:
+				tickerStat[ticker] = {}
+			tickerStat[ticker]['money'] = tickerStat[ticker]['money']+bought if 'money' in tickerStat[ticker] else bought
+			tickerStat[ticker]['qty'] = tickerStat[ticker]['qty']+qty if 'qty' in tickerStat[ticker] else qty
+		return tickerStat
+
+
+class WebullApi(JsonApi):
+
+	# cache
 	responseWebullSearchList = None
 	responseWebullChipQuery = None
 	responseWebullTickerGetTickerRealTime = None
@@ -26,17 +101,8 @@ class Api:
 	responseWebullBriefInfo = None
 	responseWebullOptions = None
 	responseWebullGuess = None
-
-	def _getJson(self, host, path, headers = {}, body = None):
-		headers['User-Agent'] = 'okhttp/3.12.1'
-		headers['Host'] = host
-		url = "https://" + host + path
-		urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-		if not body:	
-			response = requests.get(url, headers = headers, timeout=5, verify=False).content
-		else:
-			response = requests.post(url, headers = headers, data = body, timeout=5, verify=False).content
-		return json.loads(response) if response else None
+	responseWebullInsiderList = None
+	responseWebullInsiderInfo = None
 
 	def webullQuotesSearchList(self, tickerName):
 		if self.responseWebullSearchList == None:
@@ -114,34 +180,41 @@ class Api:
 			self.responseWebullGuess = self._getJson('quotes-gw.webullfintech.com','/api/social/guess/queryGuessInfoByTicker/%s' % (tickerId))
 		return self.responseWebullGuess
 
-	def tinkoffGetMarketStocks(self, token):
-		response = self._getJson("api-invest.tinkoff.ru", "/openapi/market/stocks", {
-			"Authorization":"Bearer %s" % token,
-			"Accept": "application/json"
-			}
-		)
-		return response
+	def webullGetInsiderList(self, tickerId):
+		if self.responseWebullInsiderList == None:
+			body = '{"tickerId":%s, "pageSize":100, "acquireType": 1}' % (tickerId)
+			self.responseWebullInsiderList = self._getJson('quotes-gw.webullfintech.com','/api/information/company/queryInsiderList', body = body)
+		return self.responseWebullInsiderList
+
+	def webullGetInsiderInfo(self, tickerId):
+		if self.responseWebullInsiderInfo == None:
+			self.responseWebullInsiderInfo = self._getJson('quotes-gw.webullfintech.com','/api/information/company/queryInsiderDetail?tickerId=%s' % (tickerId))
+		return self.responseWebullInsiderInfo
 
 
 class TickerInfo:
 
 	tickerName = None
 	tickerId = None
-	api = None	
+	webull_api = None
+	stockbeep_api = None
+	openinsider_api = None	
 
 	def __init__(self, tickerName):
 		# webull interprets "." as " "
 		self.tickerName = tickerName.replace('.',' ')
-		self.api = Api()
+		self.webull_api = WebullApi()
+		self.stockbeep_api = StockbeepApi()
+		self.openinsider_api = OpeninsiderApi()
 
 	def _callWithException(self, func):
 		try:
 			func()
 		except Exception as e:
-			print(str(type(e).__name__) + " | " + str(e))
+			print(f"{type(e).__name__} | {e}:{e.__traceback__.tb_next.tb_next.tb_lineno}")
 
 	def loadInternal(self):
-		data = self.api.webullQuotesSearchList(self.tickerName)
+		data = self.webull_api.webullQuotesSearchList(self.tickerName)
 		if 'stocks' not in data:
 			raise Exception('ticker not found')
 		for item in data['stocks']['datas']:
@@ -158,7 +231,7 @@ class TickerInfo:
 	def fillCostDistribution(self, info):
 		endDate = datetime.datetime.now()
 		startDate = (endDate - datetime.timedelta(days=7))
-		data = self.api.webullQuotesChipQuery(self.tickerId, startDate.strftime('%Y-%m-%d'), endDate.strftime('%Y-%m-%d'))
+		data = self.webull_api.webullQuotesChipQuery(self.tickerId, startDate.strftime('%Y-%m-%d'), endDate.strftime('%Y-%m-%d'))
 		if not data:
 			raise Exception('fillCostDistribution: missing distribution data')
 		if not 'data' in data or not data['data']:
@@ -176,7 +249,7 @@ class TickerInfo:
 		} 
 
 	def fillTickerRealTime(self, info):
-		data = self.api.webullQuotesTickerGetTickerRealTime(self.tickerId)
+		data = self.webull_api.webullQuotesTickerGetTickerRealTime(self.tickerId)
 		if not data:
 			raise Exception('fillCapitalFlow: missing ticker real time info')
 		if not 'close' in data:
@@ -189,21 +262,24 @@ class TickerInfo:
 		info['heldSharesRatio'] = float(data['outstandingShares'])/int(data['totalShares'])
 
 	def fillTickerFinancials(self, info):
-		data = self.api.webullQuotesTickerFinancial(self.tickerId)
+		data = self.webull_api.webullQuotesTickerFinancial(self.tickerId)
 		incomeData = data['simpleStatement'][0]
 		if incomeData['title'] == 'Income Statement':
 			latest = incomeData['list'][len(incomeData['list'])-1]
 			info['income'] = {
 				'revenue': float(latest['revenue']['value']),
-				'operatingIncome': float(latest['operatingIncome']['value']),
+				'revenueTrend': self.calcTrendSlope([float(o['revenue']['value']) for o in incomeData['list'] if 'value' in o['revenue']])[0],
 				'revenueYoyTrend': self.calcTrendSlope([float(o['revenue']['yoy']) for o in incomeData['list'] if 'yoy' in o['revenue']])[0],
+				'operatingIncome': float(latest['operatingIncome']['value']),
+				'operatingIncomeTrend': self.calcTrendSlope([float(o['operatingIncome']['value']) for o in incomeData['list'] if 'value' in o['operatingIncome']])[0],
 				'operatingIncomeYoyTrend': self.calcTrendSlope([float(o['operatingIncome']['yoy'])  for o in incomeData['list'] if 'yoy' in o['operatingIncome']])[0],
 				'netIncome': float(latest['netIncomeAfterTax']['value']),
+				'netIncomeTrend': self.calcTrendSlope([float(o['netIncomeAfterTax']['value']) for o in incomeData['list'] if 'value' in o['netIncomeAfterTax']])[0],
 				'netIncomeYoyTrend': self.calcTrendSlope([float(o['netIncomeAfterTax']['yoy'])  for o in incomeData['list'] if 'yoy' in o['netIncomeAfterTax']])[0],
 				}
 
 	def fillCapitalFlow(self, info):
-		data = self.api.webullQuotesCapitalFlow(self.tickerId)
+		data = self.webull_api.webullQuotesCapitalFlow(self.tickerId)
 		if not data:
 			raise Exception('fillCapitalFlow: missing capital flow info')
 		if not 'latest' in data:
@@ -222,7 +298,7 @@ class TickerInfo:
 		}
 
 	def fillAnalytics(self, info):
-		data = self.api.webullQuotesSecuritiesAnalysis(self.tickerId)
+		data = self.webull_api.webullQuotesSecuritiesAnalysis(self.tickerId)
 		if not data:
 			raise Exception('fillAnalytics: missing analysis')
 		if not 'targetPrice' in data:
@@ -246,7 +322,7 @@ class TickerInfo:
 		} 
 
 	def fillShortInterest(self, info):
-		data = self.api.webullQuotesShortInterest(self.tickerId)
+		data = self.webull_api.webullQuotesShortInterest(self.tickerId)
 		if len(data)>0:
 			sharesRatio = float(data[0]['shortInterst']) / info['totalShares'] if 'totalShares'in info else 0
 			info['short'] =  {
@@ -257,7 +333,7 @@ class TickerInfo:
 			}
 	
 	def fillInstitutionHoldings(self, info):
-		data = self.api.webullSecuritiesInstitutionalHoldings(self.tickerId)
+		data = self.webull_api.webullSecuritiesInstitutionalHoldings(self.tickerId)
 		if not data:
 			raise Exception('fillInstitutions: missing institutionHolding info')
 		if not 'institutionHolding' in data or not data['institutionHolding']:
@@ -273,7 +349,7 @@ class TickerInfo:
 		}
 
 	def fillInstitutionDistribution(self, info):
-		data = self.api.webullSecuritiesInstitutionsDistribution(self.tickerId)
+		data = self.webull_api.webullSecuritiesInstitutionsDistribution(self.tickerId)
 		if not 'institutions' in info:
 			info['institutions'] = {}
 		info['institutions']['major'] = []
@@ -289,19 +365,30 @@ class TickerInfo:
 		self._callWithException(lambda: self.fillInstitutionHoldings(info))
 		self._callWithException(lambda: self.fillInstitutionDistribution(info))
 
-	def calcTrendSlope(self, cost):
-		if len(cost)<2:
+	def calcTrendSlope(self, values):
+		if len(values)<2:
 			return (0, 0) 
-		days = [day for day in range(len(cost))]
-		xs = numpy.array(days, dtype=numpy.float64)
-		ys = numpy.array(cost, dtype=numpy.float64)
+		# define the power of values by first value
+		extent = 0
+		value = values[0]
+		while abs(value) > 1:
+			value /= 10
+			extent += 1
+		# scale all x/y-values between 0 and 1
+		values = [value/(10.0**extent) for value in values]
+		measures = [i*(1.0/len(values)) for i in range(0, len(values))]
+		# k
+		xs = numpy.array(measures, dtype=numpy.float64)
+		ys = numpy.array(values, dtype=numpy.float64)
 		k = (((statistics.mean(xs)*statistics.mean(ys)) - statistics.mean(xs*ys)) /
 		     ((statistics.mean(xs)**2) - statistics.mean(xs**2)))
-		
-		b = (statistics.mean(ys)) - (k * (len(cost)/2))
-		fareCost = k*xs[len(xs)-1]+b
-		trendOffset = ys[len(ys)-1] / fareCost
 
+		# b: y = kx+b => b = y-kx => b = ys-k*xs => b = mean(ys[i]-k*xs[i])
+		b = statistics.mean([ys[i]-k*xs[i] for i in range(0, len(values))])
+		latestValue = k*xs[len(xs)-1]+b
+		latestValueTrendOffset = ys[len(ys)-1] / latestValue if not latestValue==0 else 0
+
+		# look slope grapics
 		'''
 		from matplotlib import pyplot as plt 
 		plt.plot(xs,ys) 
@@ -310,15 +397,15 @@ class TickerInfo:
 		plt.show()
 		'''
 		
-		return (k, trendOffset)
+		return (k, latestValueTrendOffset)
 
 	def fillTrend(self, info):
-		data = self.api.webullQuotesTickerTrendLastYear(self.tickerId)
+		data = self.webull_api.webullQuotesTickerTrendLastYear(self.tickerId)
 		costYear = []
 		for day in data['tickerKDatas']:
 			if day['forwardKData']:
 				costYear.insert(0, float(day['forwardKData']['close']))
-		data = self.api.webullQuotesTickerTrendFiveYear(self.tickerId)
+		data = self.webull_api.webullQuotesTickerTrendFiveYear(self.tickerId)
 		costAll = []
 		for day in data['tickerKDatas']:
 			if day['forwardKData']:
@@ -335,7 +422,7 @@ class TickerInfo:
 		}
 
 	def fillSectors(self, info):
-		data = self.api.webullQuotesBriefInfo(self.tickerId)
+		data = self.webull_api.webullQuotesBriefInfo(self.tickerId)
 		if not data:
 			raise Exception('fillSectors: missing sectors info')
 		if not 'sectors' in data:
@@ -346,7 +433,7 @@ class TickerInfo:
 		info['sectors'] = '|'.join(sectors)
 
 	def fillOptions(self, info):
-		data = self.api.webullQuotesOptions(self.tickerId)
+		data = self.webull_api.webullQuotesOptions(self.tickerId)
 		if not data:
 			raise Exception('fillOptions: missing options info')
 		if not 'expireDateList' in data:
@@ -387,8 +474,13 @@ class TickerInfo:
 				if optionType == "put":
 					for cost in range(0, int(strike)):
 						optionCostExpectation[cost] = optionCount if cost not in optionCostExpectation else optionCostExpectation[cost]+optionCount
-			#print("---------------------------- " + str(baseDate))
-			#print(optionCostExpectation) # https://jsfiddle.net/canvasjs/RxeP6/
+			
+			# look graphical representation
+			'''
+			print("---------------------------- " + str(baseDate))
+			print(optionCostExpectation) # https://jsfiddle.net/canvasjs/RxeP6/
+			'''
+
 			biggestCostDistribution = 0
 			biggestExpectedCost = 0
 			for cost in optionCostExpectation:
@@ -433,7 +525,7 @@ class TickerInfo:
 				})
 
 	def fillGuess(self, info):
-		data = self.api.webullQuotesGuess(self.tickerId)
+		data = self.webull_api.webullQuotesGuess(self.tickerId)
 		if not data:
 			raise Exception('fillGuess: missing guess info')
 		if not 'bullTotal' in data:
@@ -451,6 +543,33 @@ class TickerInfo:
 			}
 		}
 
+	def fillTechnicalAnal(self, info):
+		data = self.stockbeep_api.getBreakoutStocks()
+		if not 'technical' in info:
+			info['technical'] = {}
+		for stock in data['data']:
+			# <a href> tag parse
+			if f">{self.tickerName}<" in stock['sscode']:
+				info['technical']['breakout_magnitude'] = float(stock['sd']) # resistance for latest 5 day 
+		data = self.stockbeep_api.getTrendingStocks()
+		for stock in data['data']:
+			# <a href> tag parse
+			if f">{self.tickerName}<" in stock['sscode']:
+				info['technical']['trend_comment'] = stock['sscomment'] 
+
+
+	def fillInsiderPurchases(self, info):
+		data = self.openinsider_api.getLastWeekPurchases()
+		info['insiders'] = {}
+		if self.tickerName in data:
+			info['insiders'] = {}
+			info['insiders']['purchasedPrice'] = round(data[self.tickerName]['money'], 2)
+			info['insiders']['purchasedSharesToAllRatio'] = data[self.tickerName]['qty'] / float(info['totalShares'])
+		data = self.webull_api.webullGetInsiderInfo(self.tickerId)
+		if 'owend' in data:
+			info['insiders']['owend_%'] = float(data['owend'])
+
+
 	def collect(self):
 		info = {}
 		self._callWithException(lambda: self.fillTickerRealTime(info))
@@ -464,8 +583,11 @@ class TickerInfo:
 		self._callWithException(lambda: self.fillTrend(info))
 		self._callWithException(lambda: self.fillSectors(info))
 		self._callWithException(lambda: self.fillOptions(info))
+		self._callWithException(lambda: self.fillTechnicalAnal(info))
+		self._callWithException(lambda: self.fillInsiderPurchases(info))
 		
 		return info
+
 
 class Storage:
 
@@ -492,8 +614,7 @@ class Crawler:
 	storage = None
 
 	def enumerateTinkoffTickers(self, token):
-		api = Api()
-		stocks = api.tinkoffGetMarketStocks(token)
+		stocks = TinkoffApi().tinkoffGetMarketStocks(token)
 		tickers = []
 		for stock in stocks['payload']['instruments']:
 			tickerName = stock['ticker']
@@ -582,11 +703,11 @@ class UserInterface:
 
 	def printFeed(self, ticker):
 		ticker = TickerInfo(ticker)
-		data = Api().webullQuotesFeed(ticker.load())
+		data = WebullApi().webullQuotesFeed(ticker.load())
 		self.printFeedData(data)
 
 	def printFeedItemComments(self, uuid):
-		data = Api().webullQuotesFeedItemComments(uuid)
+		data = WebullApi().webullQuotesFeedItemComments(uuid)
 		comments = []
 		for item in data: 
 			comments.append(item['comment'])

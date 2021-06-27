@@ -256,7 +256,7 @@ class TickerRating():
 			}
 		)
 
-	# treat
+	# treat: no fall bets
 	def getOptionsPositive(self):
 		return self.selector.select(
 			{
@@ -287,7 +287,7 @@ class TickerRating():
 			}
 		)
 
-	# treat: current cost must be better
+	# treat: current cost should be better
 	def getCostBelowFareCost(self):
 		return self.selector.select(
 			{
@@ -301,11 +301,11 @@ class TickerRating():
 		)
 
 	# treat
-	def getSteepGrowing(self):
+	def getStableGrowing(self):
 		return self.selector.select(
 			{
-				'trend.costTrend5Y':{'$exists':True, '$gt':0.25},
-				'trend.costTrend1Y':{'$exists':True, '$gt':0.1}
+				'trend.costTrend5Y':{'$exists':True, '$gt':0},
+				'trend.costTrend1Y':{'$exists':True, '$gt':0}
 			}
 		)
 
@@ -318,17 +318,25 @@ class TickerRating():
 			}
 		)		
 
-	# treat: cost trend must be better
+	# treat: cost trend worse than revenue trend
 	def getDevelopingUnderestimated(self):
 		return self.selector.select(
 			[
-				{'$addFields':{'trend_farness':{'$subtract':['$income.revenueYoyTrend', '$trend.costTrend5Y']}}},
-				{'$match':{'income.revenueYoyTrend':{'$exists':True, '$gt':0}, 'trend_farness':{'$gt':0}}}
+				{'$addFields':{'trend_farness':{'$subtract':['$income.revenueTrend', '$trend.costTrend5Y']}}},
+				{'$match':{'income.revenueTrend':{'$exists':True, '$gt':0}, 'trend_farness':{'$gt':0}}}
 			], 
 			True
 		)
 
-	# treat: good managed
+	# treat: market occupation increasing because revenue growing from year to year
+	def getOccupationGrowing(self):
+		return self.selector.select(
+			{
+				'income.revenueTrend':{'$exists':True, '$gt':0}
+			}
+		)
+
+	# treat: good managed because income growth growing from year to year
 	def getOperatingEffective(self):
 		return self.selector.select(
 			{
@@ -336,11 +344,27 @@ class TickerRating():
 			}
 		)
 
-	# treat
+	# treat: possible short squeeze
 	def getTightShorts(self):
 		return self.selector.select(
 			{
 				'short.daysToCover':{'$exists':True, '$gte':3.5}
+			}
+		)
+
+	# treat: soon growth
+	def getResistance5dayBreakout(self):
+		return self.selector.select(
+			{
+				'technical.breakout_magnitude':{'$exists':True}
+			}
+		)
+
+	# treat: insiders know something
+	def getInsiderBuying(self):
+		return self.selector.select(
+			{
+				'insiders.purchasedPrice':{'$exists':True}
 			}
 		)
 
@@ -357,9 +381,12 @@ class TickerRating():
 			'getCostBelowFareCost',
 			'getTechnicallyGood',
 			'getDevelopingUnderestimated',
+			'getOccupationGrowing',
 			'getOperatingEffective',
 			'getTightShorts',
-			'getSteepGrowing'
+			'getStableGrowing',
+			'getResistance5dayBreakout',
+			'getInsiderBuying'
 		]
 
 	def getTickersRating(self):
@@ -369,6 +396,7 @@ class TickerRating():
 			for stock in getattr(self, treat)():
 				if not stock['ticker'] in indicators: 
 					indicators[stock['ticker']]= {}
+					indicators[stock['ticker']]['name'] = stock['name'] if 'name' in stock else None
 					indicators[stock['ticker']]['indicators'] = []
 				if not treat == '_any_':
 					indicators[stock['ticker']]['indicators'].append(treat)
@@ -390,11 +418,13 @@ class TickerRating():
 			sortableSet.append({
 				'indicators': rating[ticker]['indicators'],
 				'ticker': ticker,
-				'cost': rating[ticker]['cost'] if 'cost' in rating[ticker] else None
+				'name': rating[ticker]['name'],
+				'cost': rating[ticker]['cost']
 				})
 		for item in sorted(sortableSet, key=lambda x: len(x['indicators'])):
-			print("%10s : %s" % (
+			print("%10s (%-10s): %s" % (
 				"%s[%s]" % (item['ticker'], len(item['indicators'])),
+				str(item['name'])[:10],
 				' + '.join(item['indicators'])
 			))
 
@@ -417,8 +447,7 @@ class TickerRating():
 						# go through all indicators in that previous day
 						for indicator in prevRating[ticker]['indicators']:
 							# increase indicator rating by (now_price-prev_price)
-							if prevRating[ticker]['cost']>0 and curRating[ticker]['cost']/prevRating[ticker]['cost'] >= 1.1:
-								indicatorRating[indicator] += curRating[ticker]['cost']-prevRating[ticker]['cost']
+							indicatorRating[indicator] += curRating[ticker]['cost']-prevRating[ticker]['cost']
 			prevRatings.append(curRating)
 			current += datetime.timedelta(days=1)
 		for indicator in indicatorRating:
@@ -438,5 +467,8 @@ class TickerRating():
 #analyzer.dump(analyzer.getCostTrendDeviatedRevenueTrend()) 
 #analyzer.dump(analyzer.getGrowingUnderestimated()) 
 
-TickerRating.printTickerRating(datetime.datetime.now())
-TickerRating.printIndicatorCorrelation(datetime.datetime(2021,1,1), datetime.datetime.now())
+date_from = datetime.datetime(2021,6,27)
+date_till= datetime.datetime(2021,6,26)
+#date_till = datetime.datetime.now()
+TickerRating.printTickerRating(date_till)
+TickerRating.printIndicatorCorrelation(date_from, date_till)
