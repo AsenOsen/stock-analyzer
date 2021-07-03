@@ -251,7 +251,7 @@ class TickerRating():
 	def getHoldersInLoss(self):
 		return self.selector.select(
 			{
-				'holders.profitableSharesRatio':{'$exists':True, '$lte':0.55}, 
+				'holders.profitableSharesRatio':{'$exists':True, '$lte':0.25}, 
 				'holders.avgCostToCurrentRatio':{'$exists':True, '$gt':1}, 
 			}
 		)
@@ -336,6 +336,14 @@ class TickerRating():
 			}
 		)
 
+	# treat: company has excessive money after all operating expenses
+	def getProfitable(self):
+		return self.selector.select(
+			{
+				'income.netIncome':{'$exists':True, '$gt':0}
+			}
+		)
+
 	# treat: good managed because income growth growing from year to year
 	def getOperatingEffective(self):
 		return self.selector.select(
@@ -383,6 +391,7 @@ class TickerRating():
 			'getDevelopingUnderestimated',
 			'getOccupationGrowing',
 			'getOperatingEffective',
+			'getProfitable',
 			'getTightShorts',
 			'getStableGrowing',
 			'getResistance5dayBreakout',
@@ -410,7 +419,7 @@ class TickerRating():
 			try:
 				rating = TickerRating(now).getTickersRating()
 				break
-			except:
+			except Exception as e:
 				now -= datetime.timedelta(days=1)
 				continue
 		sortableSet = []
@@ -468,7 +477,7 @@ class TickerRating():
 #analyzer.dump(analyzer.getGrowingUnderestimated()) 
 
 date_from = datetime.datetime(2021,6,27)
-date_till= datetime.datetime(2021,6,26)
-#date_till = datetime.datetime.now()
+#date_till= datetime.datetime(2021,6,27)
+date_till = datetime.datetime.now()
 TickerRating.printTickerRating(date_till)
 TickerRating.printIndicatorCorrelation(date_from, date_till)

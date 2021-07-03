@@ -59,6 +59,7 @@ class StockbeepApi(JsonApi):
 			StockbeepApi.trendings = self._getJson('stockbeep.com', f'/table-data/trending-stocks?country=us&time-zone=-180&sort-column=sd&sort-order=desc&_={int(time.time()*1000)}')
 		return StockbeepApi.trendings
 
+
 class OpeninsiderApi(HttpApi):
 
 	# global siglethon cache
@@ -83,6 +84,33 @@ class OpeninsiderApi(HttpApi):
 			tickerStat[ticker]['money'] = tickerStat[ticker]['money']+bought if 'money' in tickerStat[ticker] else bought
 			tickerStat[ticker]['qty'] = tickerStat[ticker]['qty']+qty if 'qty' in tickerStat[ticker] else qty
 		return tickerStat
+
+
+class StonksApi(JsonApi):
+
+	# global siglethon cache
+	wsb = None
+	robinhood = None
+	buildId = None
+
+	def _getBuildId(self):
+		if not StonksApi.buildId:
+			data = str(self.request('stonks.news', ''))
+			import re
+			m = re.search('buildId"\:"(.*?)"', data)
+			if m:
+				StonksApi.buildId = m.group(1)
+		return StonksApi.buildId
+
+	def getWSBTop(self):
+		if StonksApi.wsb == None:
+			StonksApi.wsb = self._getJson('stonks.news', f'/_next/data/{self._getBuildId()}/summary.json')
+		return StonksApi.wsb
+
+	def	getRobinhoodTop(self):
+		if StonksApi.robinhood == None:
+			StonksApi.robinhood = self._getJson('stonks.news', f'/_next/data/{self._getBuildId()}/robinhood-top-100.json')
+		return StonksApi.robinhood
 
 
 class WebullApi(JsonApi):
@@ -199,6 +227,7 @@ class TickerInfo:
 	webull_api = None
 	stockbeep_api = None
 	openinsider_api = None	
+	stonks_api = None
 
 	def __init__(self, tickerName):
 		# webull interprets "." as " "
@@ -206,6 +235,7 @@ class TickerInfo:
 		self.webull_api = WebullApi()
 		self.stockbeep_api = StockbeepApi()
 		self.openinsider_api = OpeninsiderApi()
+		self.stonks_api = StonksApi()
 
 	def _callWithException(self, func):
 		try:
@@ -525,23 +555,37 @@ class TickerInfo:
 				})
 
 	def fillGuess(self, info):
+		# webull
 		data = self.webull_api.webullQuotesGuess(self.tickerId)
-		if not data:
-			raise Exception('fillGuess: missing guess info')
-		if not 'bullTotal' in data:
-			raise Exception('fillGuess: empty guess info')
-		info['social_guess'] = {
-			'next_day': {
+		info['social_guess'] = {}
+		if data and 'bullTotal' in data:
+			info['social_guess']['next_day'] = {
 				'bulls': data['bullTotal'],
 				'bears': data['bearTotal'],
 				'bullRatio': data['bullPct'] / 100.0 if data['bullTotal']>0 else 0
-			},
-			'overall': {
+			}
+			info['social_guess']['overall'] = {
 				'bulls': data['guessCountInfo']['bullNum'],
 				'bears': data['guessCountInfo']['bearNum'],
 				'bullRatio': data['guessCountInfo']['bullPct'] / 100.0 if data['guessCountInfo']['bullNum']>0 else 0
 			}
-		}
+		# wsb
+		data = self.stonks_api.getWSBTop()
+		if data and 'pageProps' in data and 'items' in data['pageProps']:
+			for stock in data['pageProps']['items']:
+				if stock['symbol'] == self.tickerName:
+					info['social_guess']['wsb'] = {
+						'mentions': stock['count'] if 'count' in stock else -1, 
+						'popularity': stock['popularity'] if 'popularity' in stock else -1
+					}
+		# robinhood
+		data = self.stonks_api.getRobinhoodTop()
+		if data and 'pageProps' in data and 'items' in data['pageProps']:
+			for stock in data['pageProps']['items']:
+				if stock['symbol'] == self.tickerName:
+					info['social_guess']['robinhood'] = {
+						'rank': stock['basetable_id'] if 'basetable_id' in stock else -1
+					}
 
 	def fillTechnicalAnal(self, info):
 		data = self.stockbeep_api.getBreakoutStocks()
