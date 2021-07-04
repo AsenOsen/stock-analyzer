@@ -352,6 +352,16 @@ class TickerRating():
 			}
 		)
 
+	# treat: company taking more and more every year
+	def getAggressor(self):
+		return self.selector.select(
+			{
+				'income.operatingIncomeYoyTrend':{'$exists':True, '$gt':0},
+				#'income.netIncomeYoyTrend':{'$exists':True, '$gt':0},
+				'income.revenueYoyTrend':{'$exists':True, '$gt':0}
+			}
+		)
+
 	# treat: possible short squeeze
 	def getTightShorts(self):
 		return self.selector.select(
@@ -395,7 +405,8 @@ class TickerRating():
 			'getTightShorts',
 			'getStableGrowing',
 			'getResistance5dayBreakout',
-			'getInsiderBuying'
+			'getInsiderBuying',
+			'getAggressor'
 		]
 
 	def getTickersRating(self):

@@ -116,108 +116,118 @@ class StonksApi(JsonApi):
 class WebullApi(JsonApi):
 
 	# cache
-	responseWebullSearchList = None
-	responseWebullChipQuery = None
-	responseWebullTickerGetTickerRealTime = None
-	responseWebullCapitalFlow = None
-	responseWebullSecuritiesAnalysis = None
-	responseWebullShortInterest = None
-	responseWebullInstitutionalHoldings = None
-	responseWebullInstitutionsDistribution = None
-	responseWebullTrendLastYear = None
-	responseWebullTrend5Y = None
-	responseWebullBriefInfo = None
-	responseWebullOptions = None
-	responseWebullGuess = None
-	responseWebullInsiderList = None
-	responseWebullInsiderInfo = None
+	responseSearchList = None
+	responseChipQuery = None
+	responseTickerGetTickerRealTime = None
+	responseCapitalFlow = None
+	responseSecuritiesAnalysis = None
+	responseShortInterest = None
+	responseInstitutionalHoldings = None
+	responseInstitutionsDistribution = None
+	responseTrendLastYear = None
+	responseTrend5Y = None
+	responseBriefInfo = None
+	responseOptions = None
+	responseGuess = None
+	responseInsiderList = None
+	responseInsiderInfo = None
+	responseDividends = None
 
-	def webullQuotesSearchList(self, tickerName):
-		if self.responseWebullSearchList == None:
-			self.responseWebullSearchList = self._getJson('quotes-gw.webullfintech.com','/api/search/list?pageSize=20&pageIndex=1&busiModel=10000&keyword=%s' % (tickerName))
-		return self.responseWebullSearchList
+	def getSearchList(self, tickerName):
+		if self.responseSearchList == None:
+			self.responseSearchList = self._getJson('quotes-gw.webullfintech.com','/api/search/list?pageSize=20&pageIndex=1&busiModel=10000&keyword=%s' % (tickerName))
+		return self.responseSearchList
 
-	def webullQuotesChipQuery(self, tickerId, startDate, endDate):
-		if self.responseWebullChipQuery == None:
-			self.responseWebullChipQuery = self._getJson('quotes-gw.webullfintech.com','/api/quotes/chip/query?tickerId=%s&startDate=%s&endDate=%s' % (tickerId, startDate, endDate))
-		return self.responseWebullChipQuery
+	def getChipQuery(self, tickerId, startDate, endDate):
+		if self.responseChipQuery == None:
+			self.responseChipQuery = self._getJson('quotes-gw.webullfintech.com','/api/quotes/chip/query?tickerId=%s&startDate=%s&endDate=%s' % (tickerId, startDate, endDate))
+		return self.responseChipQuery
 
-	def webullQuotesTickerGetTickerRealTime(self, tickerId):
-		if self.responseWebullTickerGetTickerRealTime == None:
-			self.responseWebullTickerGetTickerRealTime = self._getJson('quotes-gw.webullfintech.com','/api/quotes/ticker/getTickerRealTime?includeSecu=1&tickerId=%s' % (tickerId))
-		return self.responseWebullTickerGetTickerRealTime
+	def getTickerGetTickerRealTime(self, tickerId):
+		if self.responseTickerGetTickerRealTime == None:
+			self.responseTickerGetTickerRealTime = self._getJson('quotes-gw.webullfintech.com','/api/quotes/ticker/getTickerRealTime?includeSecu=1&tickerId=%s' % (tickerId))
+		return self.responseTickerGetTickerRealTime
 
-	def webullQuotesTickerFinancial(self, tickerId):
+	def getTickerFinancial(self, tickerId):
 		return self._getJson('quotes-gw.webullfintech.com','/api/information/financial/index?tickerId=%s' % (tickerId))
 
-	def webullQuotesCapitalFlow(self, tickerId):
-		if self.responseWebullCapitalFlow == None:
-			self.responseWebullCapitalFlow = self._getJson('quotes-gw.webullfintech.com','/api/wlas/meteor/capitalflow/ticker?tickerId=%s&showHis=true&version=1' % (tickerId))
-		return self.responseWebullCapitalFlow
+	def getCapitalFlow(self, tickerId):
+		if self.responseCapitalFlow == None:
+			self.responseCapitalFlow = self._getJson('quotes-gw.webullfintech.com','/api/wlas/meteor/capitalflow/ticker?tickerId=%s&showHis=true&version=1' % (tickerId))
+		return self.responseCapitalFlow
 
-	def webullQuotesSecuritiesAnalysis(self, tickerId):
-		if self.responseWebullSecuritiesAnalysis == None:
-			self.responseWebullSecuritiesAnalysis = self._getJson('quotes-gw.webullfintech.com','/api/information/securities/analysis?tickerId=%s&type=toolkit' % (tickerId))
-		return self.responseWebullSecuritiesAnalysis
+	def getSecuritiesAnalysis(self, tickerId):
+		if self.responseSecuritiesAnalysis == None:
+			self.responseSecuritiesAnalysis = self._getJson('quotes-gw.webullfintech.com','/api/information/securities/analysis?tickerId=%s&type=toolkit' % (tickerId))
+		return self.responseSecuritiesAnalysis
 
-	def webullQuotesShortInterest(self, tickerId):
-		if self.responseWebullShortInterest == None:
-			self.responseWebullShortInterest = self._getJson('quotes-gw.webullfintech.com','/api/information/brief/shortInterest?tickerId=%s' % (tickerId))
-		return self.responseWebullShortInterest
+	def getShortInterest(self, tickerId):
+		if self.responseShortInterest == None:
+			self.responseShortInterest = self._getJson('quotes-gw.webullfintech.com','/api/information/brief/shortInterest?tickerId=%s' % (tickerId))
+		return self.responseShortInterest
 
-	def webullSecuritiesInstitutionalHoldings(self, tickerId):
-		if self.responseWebullInstitutionalHoldings == None:
-			self.responseWebullInstitutionalHoldings = self._getJson('securitiesapi.webullfintech.com','/api/securities/stock/v5/%s/institutionalHolding' % (tickerId))
-		return self.responseWebullInstitutionalHoldings
+	'''
+	def getInstitutionalHoldings(self, tickerId):
+		if self.responseInstitutionalHoldings == None:
+			self.responseInstitutionalHoldings = self._getJson('securitiesapi.webullfintech.com','/api/securities/stock/v5/%s/institutionalHolding' % (tickerId))
+		return self.responseInstitutionalHoldings
 
-	def webullSecuritiesInstitutionsDistribution(self, tickerId):
-		if self.responseWebullInstitutionsDistribution == None:
-			self.responseWebullInstitutionsDistribution = self._getJson('quotes-gw.webullfintech.com','/api/information/brief/holdersDetail?tickerId=%s&hasNum=0&pageSize=20&type=2' % (tickerId))
-		return self.responseWebullInstitutionsDistribution
+	def getInstitutionsDistribution(self, tickerId):
+		if self.responseInstitutionsDistribution == None:
+			self.responseInstitutionsDistribution = self._getJson('quotes-gw.webullfintech.com','/api/information/brief/holdersDetail?tickerId=%s&hasNum=0&pageSize=20&type=2' % (tickerId))
+		return self.responseInstitutionsDistribution
+	'''
 
-	def webullQuotesBriefInfo(self, tickerId):
-		if self.responseWebullBriefInfo == None:
-			self.responseWebullBriefInfo = self._getJson('quotes-gw.webullfintech.com','/api/information/stock/brief?tickerId=%s' % (tickerId))
-		return self.responseWebullBriefInfo
+	def getBriefInfo(self, tickerId):
+		if self.responseBriefInfo == None:
+			self.responseBriefInfo = self._getJson('quotes-gw.webullfintech.com','/api/information/stock/brief?tickerId=%s' % (tickerId))
+		return self.responseBriefInfo
 
-	def webullQuotesTickerTrendLastYear(self, tickerId):
-		if self.responseWebullTrendLastYear == None:
-			self.responseWebullTrendLastYear = self._getJson('quoteapi.webullfintech.com','/api/quote/v2/tickerTrends/%s?trendType=y1' % (tickerId))
-		return self.responseWebullTrendLastYear
+	def getTickerTrendLastYear(self, tickerId):
+		if self.responseTrendLastYear == None:
+			self.responseTrendLastYear = self._getJson('quoteapi.webullfintech.com','/api/quote/v2/tickerTrends/%s?trendType=y1' % (tickerId))
+		return self.responseTrendLastYear
 
-	def webullQuotesTickerTrendFiveYear(self, tickerId):
-		if self.responseWebullTrend5Y == None:
-			self.responseWebullTrend5Y = self._getJson('quoteapi.webullfintech.com','/api/quote/v2/tickerTrends/%s?trendType=y5' % (tickerId))
-		return self.responseWebullTrend5Y
+	def getTickerTrendFiveYear(self, tickerId):
+		if self.responseTrend5Y == None:
+			self.responseTrend5Y = self._getJson('quoteapi.webullfintech.com','/api/quote/v2/tickerTrends/%s?trendType=y5' % (tickerId))
+		return self.responseTrend5Y
 
-	def webullQuotesOptions(self, tickerId):
-		if self.responseWebullOptions == None:
+	def getOptions(self, tickerId):
+		if self.responseOptions == None:
 			# [3,2,4] - regular\weekly\quaterly
 			body = '{"count":50,"expireCycle":[3,2,4],"type":0,"tickerId":%s,"direction":"all"}' % (tickerId)
-			self.responseWebullOptions = self._getJson('quotes-gw.webullfintech.com','/api/quote/option/strategy/list', body = body)
-		return self.responseWebullOptions
+			self.responseOptions = self._getJson('quotes-gw.webullfintech.com','/api/quote/option/strategy/list', body = body)
+		return self.responseOptions
 
-	def webullQuotesFeed(self, tickerId):
+	def getFeed(self, tickerId):
 		return self._getJson('quotes-gw.webullfintech.com','/api/social/feed/ticker/%s/posts?size=200' % (tickerId))
 
-	def webullQuotesFeedItemComments(self, uuid):
+	def getFeedItemComments(self, uuid):
 		return self._getJson('quotes-gw.webullfintech.com','/api/social/feed/post/%s/comments' % (uuid))
 
-	def webullQuotesGuess(self, tickerId):
-		if self.responseWebullGuess == None:
-			self.responseWebullGuess = self._getJson('quotes-gw.webullfintech.com','/api/social/guess/queryGuessInfoByTicker/%s' % (tickerId))
-		return self.responseWebullGuess
+	def getGuess(self, tickerId):
+		if self.responseGuess == None:
+			self.responseGuess = self._getJson('quotes-gw.webullfintech.com','/api/social/guess/queryGuessInfoByTicker/%s' % (tickerId))
+		return self.responseGuess
 
-	def webullGetInsiderList(self, tickerId):
-		if self.responseWebullInsiderList == None:
+	'''
+	def getInsiderList(self, tickerId):
+		if self.responseInsiderList == None:
 			body = '{"tickerId":%s, "pageSize":100, "acquireType": 1}' % (tickerId)
-			self.responseWebullInsiderList = self._getJson('quotes-gw.webullfintech.com','/api/information/company/queryInsiderList', body = body)
-		return self.responseWebullInsiderList
+			self.responseInsiderList = self._getJson('quotes-gw.webullfintech.com','/api/information/company/queryInsiderList', body = body)
+		return self.responseInsiderList
+	'''
 
-	def webullGetInsiderInfo(self, tickerId):
-		if self.responseWebullInsiderInfo == None:
-			self.responseWebullInsiderInfo = self._getJson('quotes-gw.webullfintech.com','/api/information/company/queryInsiderDetail?tickerId=%s' % (tickerId))
-		return self.responseWebullInsiderInfo
+	def getInsiderInfo(self, tickerId):
+		if self.responseInsiderInfo == None:
+			self.responseInsiderInfo = self._getJson('quotes-gw.webullfintech.com','/api/information/company/queryInsiderDetail?tickerId=%s' % (tickerId))
+		return self.responseInsiderInfo
+
+	def getDividendinfo(self, tickerId):
+		if self.responseDividends == None:
+			self.responseDividends = self._getJson('securitiesapi.webullfintech.com',f'/api/securities/stock/v5/{tickerId}/dividendes')
+		return self.responseDividends
 
 
 class TickerInfo:
@@ -244,7 +254,7 @@ class TickerInfo:
 			print(f"{type(e).__name__} | {e}:{e.__traceback__.tb_next.tb_next.tb_lineno}")
 
 	def loadInternal(self):
-		data = self.webull_api.webullQuotesSearchList(self.tickerName)
+		data = self.webull_api.getSearchList(self.tickerName)
 		if 'stocks' not in data:
 			raise Exception('ticker not found')
 		for item in data['stocks']['datas']:
@@ -261,7 +271,7 @@ class TickerInfo:
 	def fillCostDistribution(self, info):
 		endDate = datetime.datetime.now()
 		startDate = (endDate - datetime.timedelta(days=7))
-		data = self.webull_api.webullQuotesChipQuery(self.tickerId, startDate.strftime('%Y-%m-%d'), endDate.strftime('%Y-%m-%d'))
+		data = self.webull_api.getChipQuery(self.tickerId, startDate.strftime('%Y-%m-%d'), endDate.strftime('%Y-%m-%d'))
 		if not data:
 			raise Exception('fillCostDistribution: missing distribution data')
 		if not 'data' in data or not data['data']:
@@ -279,7 +289,7 @@ class TickerInfo:
 		} 
 
 	def fillTickerRealTime(self, info):
-		data = self.webull_api.webullQuotesTickerGetTickerRealTime(self.tickerId)
+		data = self.webull_api.getTickerGetTickerRealTime(self.tickerId)
 		if not data:
 			raise Exception('fillCapitalFlow: missing ticker real time info')
 		if not 'close' in data:
@@ -292,24 +302,39 @@ class TickerInfo:
 		info['heldSharesRatio'] = float(data['outstandingShares'])/int(data['totalShares'])
 
 	def fillTickerFinancials(self, info):
-		data = self.webull_api.webullQuotesTickerFinancial(self.tickerId)
+		data = self.webull_api.getTickerFinancial(self.tickerId)
 		incomeData = data['simpleStatement'][0]
 		if incomeData['title'] == 'Income Statement':
-			latest = incomeData['list'][len(incomeData['list'])-1]
 			info['income'] = {
-				'revenue': float(latest['revenue']['value']),
 				'revenueTrend': self.calcTrendSlope([float(o['revenue']['value']) for o in incomeData['list'] if 'value' in o['revenue']])[0],
+				'revenueTrendLatest': self.calcTrendSlope([float(o['revenue']['value']) for o in incomeData['list'] if 'value' in o['revenue']][-2:])[0],
 				'revenueYoyTrend': self.calcTrendSlope([float(o['revenue']['yoy']) for o in incomeData['list'] if 'yoy' in o['revenue']])[0],
-				'operatingIncome': float(latest['operatingIncome']['value']),
+				'revenueYoyTrendLatest': self.calcTrendSlope([float(o['revenue']['yoy']) for o in incomeData['list'] if 'yoy' in o['revenue']][-2:])[0],
 				'operatingIncomeTrend': self.calcTrendSlope([float(o['operatingIncome']['value']) for o in incomeData['list'] if 'value' in o['operatingIncome']])[0],
+				'operatingIncomeTrendLatest': self.calcTrendSlope([float(o['operatingIncome']['value']) for o in incomeData['list'] if 'value' in o['operatingIncome']][-2:])[0],
 				'operatingIncomeYoyTrend': self.calcTrendSlope([float(o['operatingIncome']['yoy'])  for o in incomeData['list'] if 'yoy' in o['operatingIncome']])[0],
-				'netIncome': float(latest['netIncomeAfterTax']['value']),
+				'operatingIncomeYoyTrendLatest': self.calcTrendSlope([float(o['operatingIncome']['yoy'])  for o in incomeData['list'] if 'yoy' in o['operatingIncome']][-2:])[0],
 				'netIncomeTrend': self.calcTrendSlope([float(o['netIncomeAfterTax']['value']) for o in incomeData['list'] if 'value' in o['netIncomeAfterTax']])[0],
+				'netIncomeTrendLatest': self.calcTrendSlope([float(o['netIncomeAfterTax']['value']) for o in incomeData['list'] if 'value' in o['netIncomeAfterTax']][-2:])[0],
 				'netIncomeYoyTrend': self.calcTrendSlope([float(o['netIncomeAfterTax']['yoy'])  for o in incomeData['list'] if 'yoy' in o['netIncomeAfterTax']])[0],
+				'netIncomeYoyTrendLatest': self.calcTrendSlope([float(o['netIncomeAfterTax']['yoy'])  for o in incomeData['list'] if 'yoy' in o['netIncomeAfterTax']][-2:])[0],
 				}
+			latest = incomeData['list'][len(incomeData['list'])-1]
+			try:
+				info['income']['revenue'] = float(latest['revenue']['value'])
+			except:
+				pass
+			try:
+				info['income']['operatingIncome'] = float(latest['operatingIncome']['value'])
+			except:
+				pass
+			try:
+				info['income']['netIncome'] = float(latest['netIncomeAfterTax']['value'])
+			except:
+				pass
 
 	def fillCapitalFlow(self, info):
-		data = self.webull_api.webullQuotesCapitalFlow(self.tickerId)
+		data = self.webull_api.getCapitalFlow(self.tickerId)
 		if not data:
 			raise Exception('fillCapitalFlow: missing capital flow info')
 		if not 'latest' in data:
@@ -328,7 +353,7 @@ class TickerInfo:
 		}
 
 	def fillAnalytics(self, info):
-		data = self.webull_api.webullQuotesSecuritiesAnalysis(self.tickerId)
+		data = self.webull_api.getSecuritiesAnalysis(self.tickerId)
 		if not data:
 			raise Exception('fillAnalytics: missing analysis')
 		if not 'targetPrice' in data:
@@ -352,7 +377,7 @@ class TickerInfo:
 		} 
 
 	def fillShortInterest(self, info):
-		data = self.webull_api.webullQuotesShortInterest(self.tickerId)
+		data = self.webull_api.getShortInterest(self.tickerId)
 		if len(data)>0:
 			sharesRatio = float(data[0]['shortInterst']) / info['totalShares'] if 'totalShares'in info else 0
 			info['short'] =  {
@@ -362,6 +387,7 @@ class TickerInfo:
 				'daysToCover': float(data[0]['daysToCover'])
 			}
 	
+	'''
 	def fillInstitutionHoldings(self, info):
 		data = self.webull_api.webullSecuritiesInstitutionalHoldings(self.tickerId)
 		if not data:
@@ -377,7 +403,7 @@ class TickerInfo:
 			'institutionsDecrease': int(data['institutionHolding']['decrease']['institutionalCount']),
 			'institutionsSoldout': int(data['institutionHolding']['soldOut']['institutionalCount']),
 		}
-
+	
 	def fillInstitutionDistribution(self, info):
 		data = self.webull_api.webullSecuritiesInstitutionsDistribution(self.tickerId)
 		if not 'institutions' in info:
@@ -394,15 +420,16 @@ class TickerInfo:
 	def fillInstitution(self, info):
 		self._callWithException(lambda: self.fillInstitutionHoldings(info))
 		self._callWithException(lambda: self.fillInstitutionDistribution(info))
+	'''
 
 	def calcTrendSlope(self, values):
 		if len(values)<2:
 			return (0, 0) 
-		# define the power of values by first value
+		# define the power of values by max value
 		extent = 0
-		value = values[0]
-		while abs(value) > 1:
-			value /= 10
+		maxValue = max(values)
+		while abs(maxValue) > 1:
+			maxValue /= 10
 			extent += 1
 		# scale all x/y-values between 0 and 1
 		values = [value/(10.0**extent) for value in values]
@@ -430,12 +457,12 @@ class TickerInfo:
 		return (k, latestValueTrendOffset)
 
 	def fillTrend(self, info):
-		data = self.webull_api.webullQuotesTickerTrendLastYear(self.tickerId)
+		data = self.webull_api.getTickerTrendLastYear(self.tickerId)
 		costYear = []
 		for day in data['tickerKDatas']:
 			if day['forwardKData']:
 				costYear.insert(0, float(day['forwardKData']['close']))
-		data = self.webull_api.webullQuotesTickerTrendFiveYear(self.tickerId)
+		data = self.webull_api.getTickerTrendFiveYear(self.tickerId)
 		costAll = []
 		for day in data['tickerKDatas']:
 			if day['forwardKData']:
@@ -452,7 +479,7 @@ class TickerInfo:
 		}
 
 	def fillSectors(self, info):
-		data = self.webull_api.webullQuotesBriefInfo(self.tickerId)
+		data = self.webull_api.getBriefInfo(self.tickerId)
 		if not data:
 			raise Exception('fillSectors: missing sectors info')
 		if not 'sectors' in data:
@@ -463,7 +490,7 @@ class TickerInfo:
 		info['sectors'] = '|'.join(sectors)
 
 	def fillOptions(self, info):
-		data = self.webull_api.webullQuotesOptions(self.tickerId)
+		data = self.webull_api.getOptions(self.tickerId)
 		if not data:
 			raise Exception('fillOptions: missing options info')
 		if not 'expireDateList' in data:
@@ -556,7 +583,7 @@ class TickerInfo:
 
 	def fillGuess(self, info):
 		# webull
-		data = self.webull_api.webullQuotesGuess(self.tickerId)
+		data = self.webull_api.getGuess(self.tickerId)
 		info['social_guess'] = {}
 		if data and 'bullTotal' in data:
 			info['social_guess']['next_day'] = {
@@ -601,7 +628,6 @@ class TickerInfo:
 			if f">{self.tickerName}<" in stock['sscode']:
 				info['technical']['trend_comment'] = stock['sscomment'] 
 
-
 	def fillInsiderPurchases(self, info):
 		data = self.openinsider_api.getLastWeekPurchases()
 		info['insiders'] = {}
@@ -609,10 +635,17 @@ class TickerInfo:
 			info['insiders'] = {}
 			info['insiders']['purchasedPrice'] = round(data[self.tickerName]['money'], 2)
 			info['insiders']['purchasedSharesToAllRatio'] = data[self.tickerName]['qty'] / float(info['totalShares'])
-		data = self.webull_api.webullGetInsiderInfo(self.tickerId)
+		data = self.webull_api.getInsiderInfo(self.tickerId)
 		if 'owend' in data:
 			info['insiders']['owend_%'] = float(data['owend'])
 
+	def fillDividendInfo(self, info):
+		data = self.webull_api.getDividendinfo(self.tickerId)
+		if data and 'plans' in data and len(data['plans'])>0:
+			latest = data['plans'][0]
+			published = datetime.datetime.strptime(latest['payDate'], "%Y-%m-%d")
+			if published > (datetime.datetime.now() - datetime.timedelta(days=365)):
+				info['dividendes'] = {'perShare_%': float(latest['perShare'].split(' ')[1]) / info['currentCost'] * 100}
 
 	def collect(self):
 		info = {}
@@ -629,6 +662,7 @@ class TickerInfo:
 		self._callWithException(lambda: self.fillOptions(info))
 		self._callWithException(lambda: self.fillTechnicalAnal(info))
 		self._callWithException(lambda: self.fillInsiderPurchases(info))
+		self._callWithException(lambda: self.fillDividendInfo(info))
 		
 		return info
 
@@ -747,11 +781,11 @@ class UserInterface:
 
 	def printFeed(self, ticker):
 		ticker = TickerInfo(ticker)
-		data = WebullApi().webullQuotesFeed(ticker.load())
+		data = WebullApi().getFeed(ticker.load())
 		self.printFeedData(data)
 
 	def printFeedItemComments(self, uuid):
-		data = WebullApi().webullQuotesFeedItemComments(uuid)
+		data = WebullApi().getFeedItemComments(uuid)
 		comments = []
 		for item in data: 
 			comments.append(item['comment'])
