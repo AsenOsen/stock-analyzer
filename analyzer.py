@@ -251,8 +251,8 @@ class TickerRating():
 	def getHoldersInLoss(self):
 		return self.selector.select(
 			{
-				'holders.profitableSharesRatio':{'$exists':True, '$lte':0.25}, 
-				'holders.avgCostToCurrentRatio':{'$exists':True, '$gt':1}, 
+				'holders.profitableSharesRatio':{'$exists':True, '$lte':0.5}, 
+				'holders.avgCostToCurrentRatio':{'$exists':True, '$gt':1.05}
 			}
 		)
 
@@ -282,7 +282,7 @@ class TickerRating():
 		return self.selector.select(
 			{
 				'social_guess.overall.bullRatio':{'$exists':True, '$gt':0.7}, 
-				'social_guess.overall.bulls':{'$exists':True, '$gt':5},
+				'social_guess.overall.bulls':{'$exists':True, '$gt':20},
 				'heldSharesRatio':{'$gte':0.7}
 			}
 		)
@@ -304,8 +304,8 @@ class TickerRating():
 	def getStableGrowing(self):
 		return self.selector.select(
 			{
-				'trend.costTrend5Y':{'$exists':True, '$gt':0},
-				'trend.costTrend1Y':{'$exists':True, '$gt':0}
+				'trend.costTrend5Y':{'$exists':True, '$gt':0.01},
+				'trend.costTrend1Y':{'$exists':True, '$gt':0.01}
 			}
 		)
 
@@ -322,17 +322,29 @@ class TickerRating():
 	def getDevelopingUnderestimated(self):
 		return self.selector.select(
 			[
-				{'$addFields':{'trend_farness':{'$subtract':['$income.revenueTrend', '$trend.costTrend5Y']}}},
-				{'$match':{'income.revenueTrend':{'$exists':True, '$gt':0}, 'trend_farness':{'$gt':0}}}
+				{
+					'$addFields':{
+						'trend_farness_5Y':{'$subtract':['$income.revenueTrend', '$trend.costTrend5Y']},
+						'trend_farness_1Y':{'$subtract':['$income.revenueTrendLatest', '$trend.costTrend1Y']}
+					}
+				},
+				{
+					'$match':{
+						'income.revenueTrend':{'$exists':True, '$gt':0}, 
+						'trend_farness_5Y':{'$gt':0}, 
+						'trend_farness_1Y':{'$gt':0}
+						}
+					}
 			], 
 			True
 		)
 
-	# treat: market occupation increasing because revenue growing from year to year
+	# treat: market occupation increasing because revenue growing from year to year and it keep going
 	def getOccupationGrowing(self):
 		return self.selector.select(
 			{
-				'income.revenueTrend':{'$exists':True, '$gt':0}
+				'income.revenueTrend':{'$exists':True, '$gt':0.1},
+				'income.revenueTrendLatest':{'$exists':True, '$gt':0}
 			}
 		)
 
@@ -348,7 +360,8 @@ class TickerRating():
 	def getOperatingEffective(self):
 		return self.selector.select(
 			{
-				'income.operatingIncomeYoyTrend':{'$exists':True, '$gt':0}
+				'income.operatingIncomeYoyTrend':{'$exists':True, '$gt':0},
+				'income.operatingIncome':{'$exists':True, '$gt':0}
 			}
 		)
 
@@ -356,9 +369,21 @@ class TickerRating():
 	def getAggressor(self):
 		return self.selector.select(
 			{
+				# latest year trend up
+				'income.operatingIncomeYoyTrendLatest':{'$exists':True, '$gt':0},
+				'income.revenueYoyTrendLatest':{'$exists':True, '$gt':0},
+				# overall trend up
 				'income.operatingIncomeYoyTrend':{'$exists':True, '$gt':0},
-				#'income.netIncomeYoyTrend':{'$exists':True, '$gt':0},
 				'income.revenueYoyTrend':{'$exists':True, '$gt':0}
+			}
+		)
+
+	# treat: company`s revenue serged to heaven
+	def getOccupationGrowthBegan(self):
+		return self.selector.select(
+			{
+				'$expr': {'$gt': ['$income.revenueYoyTrendLatest', '$income.revenueYoyTrend']},
+				'income.revenueYoyTrendLatest': {'$exists':True, '$gt':0}
 			}
 		)
 
@@ -406,7 +431,8 @@ class TickerRating():
 			'getStableGrowing',
 			'getResistance5dayBreakout',
 			'getInsiderBuying',
-			'getAggressor'
+			'getAggressor',
+			'getOccupationGrowthBegan'
 		]
 
 	def getTickersRating(self):
@@ -488,7 +514,7 @@ class TickerRating():
 #analyzer.dump(analyzer.getGrowingUnderestimated()) 
 
 date_from = datetime.datetime(2021,6,27)
-#date_till= datetime.datetime(2021,6,27)
+#date_till= datetime.datetime(2021,7,1)
 date_till = datetime.datetime.now()
 TickerRating.printTickerRating(date_till)
 TickerRating.printIndicatorCorrelation(date_from, date_till)
