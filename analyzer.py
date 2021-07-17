@@ -411,6 +411,34 @@ class TickerRating():
 			}
 		)
 
+	# treat
+	def getHyped(self):
+		return self.selector.select(
+			{
+				'$or':[
+					{'social_guess.wsb':{'$exists':True}},
+					{'social_guess.robinhood':{'$exists':True}}
+				]
+			}
+		)
+
+	# treat: good according to alternative analytics
+	def getGoodWallst(self):
+		return self.selector.select(
+			{
+				'$or':[
+					{
+						'wallstAnalytics.totalScoreRatio':{'$gte':0.75}
+					},
+					{
+						'wallstAnalytics.unfairValueRatio':{'$gte':0.75},
+						'wallstAnalytics.futurePerformanceRatio':{'$gte':0.75},
+						'wallstAnalytics.financialHealthRatio':{'$gte':0.75}
+					}
+				]
+			}
+		)
+
 	# treat: technical
 	def _any_(self):
 		return self.selector.select({})
@@ -432,7 +460,9 @@ class TickerRating():
 			'getResistance5dayBreakout',
 			'getInsiderBuying',
 			'getAggressor',
-			'getOccupationGrowthBegan'
+			'getOccupationGrowthBegan',
+			'getHyped',
+			'getGoodWallst'
 		]
 
 	def getTickersRating(self):
@@ -496,8 +526,10 @@ class TickerRating():
 							indicatorRating[indicator] += curRating[ticker]['cost']-prevRating[ticker]['cost']
 			prevRatings.append(curRating)
 			current += datetime.timedelta(days=1)
+		print("="*100)
 		for indicator in indicatorRating:
-			print(f"{indicator} = {round(indicatorRating[indicator])}")
+			print(f"= {indicator} = {round(indicatorRating[indicator])}")
+		print("="*100)
 
 
 #analyzer = Analyzer(datetime.datetime(2020,12,5), datetime.datetime.now())
@@ -514,7 +546,7 @@ class TickerRating():
 #analyzer.dump(analyzer.getGrowingUnderestimated()) 
 
 date_from = datetime.datetime(2021,6,27)
-#date_till= datetime.datetime(2021,7,1)
+#date_till= datetime.datetime(2021,7,8)
 date_till = datetime.datetime.now()
 TickerRating.printTickerRating(date_till)
 TickerRating.printIndicatorCorrelation(date_from, date_till)

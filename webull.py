@@ -113,6 +113,33 @@ class StonksApi(JsonApi):
 		return StonksApi.robinhood
 
 
+class WallstApi(JsonApi):
+
+	# global siglethon cache
+	identity = None
+	score = None
+
+	def getIdentityByTicker(self, tickerName):
+		if self.identity == None:
+			body = '{"query":"%s"}' % (tickerName)
+			headers = {"x-algolia-api-key": "be7c37718f927d0137a88a11b69ae419", "x-algolia-application-id": "17IQHZWXZW"}
+			search = self._getJson('17iqhzwxzw-dsn.algolia.net','/1/indexes/companies/query', headers=headers, body = body)
+			for hit in search['hits']:
+				if hit['uniqueSymbol'].split(':')[1] == tickerName:
+					self.identity = hit['objectID']
+					break
+				for listing in hit['listings']:
+					if listing['uniqueSymbol'].split(':')[1] == tickerName:
+						self.identity = hit['objectID']
+						break
+		return self.identity
+
+	def getScore(self, tickerName):
+		identity = self.getIdentityByTicker(tickerName)
+		if self.score == None: 
+			self.score = self._getJson('api.simplywall.st', f'/api/company/{identity}?include=score%2Cscore.snowflake')
+		return self.score
+
 class WebullApi(JsonApi):
 
 	# cache
@@ -238,6 +265,7 @@ class TickerInfo:
 	stockbeep_api = None
 	openinsider_api = None	
 	stonks_api = None
+	wallst_api = None
 
 	def __init__(self, tickerName):
 		# webull interprets "." as " "
@@ -246,6 +274,7 @@ class TickerInfo:
 		self.stockbeep_api = StockbeepApi()
 		self.openinsider_api = OpeninsiderApi()
 		self.stonks_api = StonksApi()
+		self.wallst_api = WallstApi()
 
 	def _callWithException(self, func):
 		try:
@@ -464,9 +493,12 @@ class TickerInfo:
 				costYear.insert(0, float(day['forwardKData']['close']))
 		data = self.webull_api.getTickerTrendFiveYear(self.tickerId)
 		costAll = []
+		latestCost = None
 		for day in data['tickerKDatas']:
-			if day['forwardKData']:
+			if 'forwardKData' in day:
 				costAll.insert(0, float(day['forwardKData']['close']))
+			if 'tradeTime' in day:
+				latestCost = datetime.datetime.strptime(day['tradeTime'].split("T")[0], "%Y-%m-%d")
 
 		trend1Y = self.calcTrendSlope(costYear)
 		trend5Y = self.calcTrendSlope(costAll)
@@ -474,6 +506,7 @@ class TickerInfo:
 		info['trend'] = {
 			'costTrend1Y': trend1Y[0],
 			'costTrend5Y': trend5Y[0],
+			'latestRecordDate': latestCost,
 			'currentCostToFareTrend1YRatio': trend1Y[1],
 			'currentCostToFareTrend5YRatio': trend5Y[1],
 		}
@@ -647,6 +680,22 @@ class TickerInfo:
 			if published > (datetime.datetime.now() - datetime.timedelta(days=365)):
 				info['dividendes'] = {'perShare_%': float(latest['perShare'].split(' ')[1]) / info['currentCost'] * 100}
 
+	def fillWallstAnalytics(self, info):
+		score = self.wallst_api.getScore(self.tickerName)['data']['score']['data']
+		info['wallstAnalytics'] = {
+			'unfairValueRatio': int(score['value']) / 6.0,
+			'futurePerformanceRatio': int(score['future']) / 6.0,
+			'pastPerformanceRatio': int(score['past']) / 6.0,
+			'financialHealthRatio': int(score['health']) / 6.0,
+			'totalScoreRatio': (int(score['total']) - int(score['income'])) / 24.0,
+		}
+
+	def fillSettings(self, info):
+		info['_'] = {
+			'webullIdentity': self.tickerId,
+			'wallstIdentity': self.wallst_api.getIdentityByTicker(self.tickerName)
+		}
+
 	def collect(self):
 		info = {}
 		self._callWithException(lambda: self.fillTickerRealTime(info))
@@ -663,7 +712,8 @@ class TickerInfo:
 		self._callWithException(lambda: self.fillTechnicalAnal(info))
 		self._callWithException(lambda: self.fillInsiderPurchases(info))
 		self._callWithException(lambda: self.fillDividendInfo(info))
-		
+		self._callWithException(lambda: self.fillWallstAnalytics(info))
+		self._callWithException(lambda: self.fillSettings(info))
 		return info
 
 
