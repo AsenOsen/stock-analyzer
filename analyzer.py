@@ -411,6 +411,14 @@ class TickerRating():
 			}
 		)
 
+	# treat: money flow in
+	def getMoneyFlowIn(self):
+		return self.selector.select(
+			{
+				'flows.inflowToOutflowRatio':{'$exists':True, '$gt':1.1}
+			}
+		)
+
 	# treat
 	def getHyped(self):
 		return self.selector.select(
@@ -462,7 +470,8 @@ class TickerRating():
 			'getAggressor',
 			'getOccupationGrowthBegan',
 			'getHyped',
-			'getGoodWallst'
+			'getGoodWallst',
+			'getMoneyFlowIn'
 		]
 
 	def getTickersRating(self):
@@ -515,20 +524,27 @@ class TickerRating():
 				current += datetime.timedelta(days=1)
 				continue
 			curRating = rating.getTickersRating()
-			# go through all current tickers
-			for ticker in curRating:
-				# go through all previous days
-				for prevRating in prevRatings:
-					if ticker in prevRating and curRating[ticker]['cost'] is not None and prevRating[ticker]['cost'] is not None:
-						# go through all indicators in that previous day
+
+			# go through all previous days
+			for prevRating in prevRatings:
+				# go through all ticker in specific previous day
+				indicatorForDay = {indicatorName:{'was':0, 'become':0} for indicatorName in TickerRating.getIndicators()}
+				for ticker in prevRating:
+					if ticker in curRating and curRating[ticker]['cost'] is not None and prevRating[ticker]['cost'] is not None:
+						# go through all ticker`s indicators in that previous day
 						for indicator in prevRating[ticker]['indicators']:
-							# increase indicator rating by (now_price-prev_price)
-							indicatorRating[indicator] += curRating[ticker]['cost']-prevRating[ticker]['cost']
+							indicatorForDay[indicator]['was'] += prevRating[ticker]['cost']
+							indicatorForDay[indicator]['become'] += curRating[ticker]['cost']
+				# calculate each indicator performance for specific day
+				for indicator in indicatorForDay:
+					if indicatorForDay[indicator]['was'] != 0:
+						indicatorRating[indicator] += (indicatorForDay[indicator]['become']-indicatorForDay[indicator]['was']) / indicatorForDay[indicator]['was']
+
 			prevRatings.append(curRating)
 			current += datetime.timedelta(days=1)
 		print("="*100)
 		for indicator in indicatorRating:
-			print(f"= {indicator} = {round(indicatorRating[indicator])}")
+			print(f"= {indicator} = {round(indicatorRating[indicator], 3)}")
 		print("="*100)
 
 
