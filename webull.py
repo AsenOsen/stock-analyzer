@@ -140,6 +140,33 @@ class WallstApi(JsonApi):
 			self.score = self._getJson('api.simplywall.st', f'/api/company/{identity}?include=score%2Cscore.snowflake')
 		return self.score
 
+
+class BeststocksApi(JsonApi):
+
+	# global siglethon cache
+	fullstats = None
+	investors = None
+	news = None
+
+	def getFullStats(self, tickerName):
+		if self.fullstats == None:
+			headers = {'accept': 'application/json'}
+			self.fullstats = self._getJson('beststocks.ru', f'/api/stocks?mode=full&ticker%5B0%5D={tickerName}&limit=1', headers=headers)
+		return self.fullstats
+
+	def getInvestorStats(self, tickerName):
+		if self.investors == None:
+			headers = {'accept': 'application/json'}
+			self.investors = self._getJson('beststocks.ru', f'/api/stocks/{tickerName}/investor-statistic', headers=headers)
+		return self.investors
+
+	def getNewsStats(self, tickerName):
+		if self.news == None:
+			headers = {'accept': 'application/json'}
+			self.news = self._getJson('beststocks.ru', f'/api/stocks/{tickerName}/news-sentiment', headers=headers)
+		return self.news
+
+
 class WebullApi(JsonApi):
 
 	# cache
@@ -266,6 +293,7 @@ class TickerInfo:
 	openinsider_api = None	
 	stonks_api = None
 	wallst_api = None
+	beststocks_api = None
 
 	def __init__(self, tickerName):
 		# webull interprets "." as " "
@@ -275,6 +303,7 @@ class TickerInfo:
 		self.openinsider_api = OpeninsiderApi()
 		self.stonks_api = StonksApi()
 		self.wallst_api = WallstApi()
+		self.beststocks_api = BeststocksApi()
 
 	def _callWithException(self, func):
 		try:
@@ -690,6 +719,56 @@ class TickerInfo:
 			'totalScoreRatio': (int(score['total']) - int(score['income'])) / 24.0,
 		}
 
+	def fillBeststocksAnalytics(self, info):
+		info['beststocksAnalytics'] = {}
+		# stats
+		try:
+			fullStats = self.beststocks_api.getFullStats(self.tickerName)['data'][0]
+			info['beststocksAnalytics'] = {
+				'scoreRatio': fullStats['analysis']['smartScore'] / 10.0,
+				'analysts': fullStats['analysis']['analystConsensus'],
+				'analystsTop': fullStats['analysis']['topAnalystsRecommendationConsensus'],
+				'analystsPriceOverYearPotential': fullStats['analysis']['pricePotential'],
+				'analystsTopPriceOverYearPotential': fullStats['analysis']['topAnalystsPricePotential'],
+				'bloggers': fullStats['analysis']['bloggerConsensus'],
+				'bloggersBullish': fullStats['analysis']['bloggerBullishSentiment'],
+				'insiders': fullStats['analysis']['insiderTrend'],
+				'insidersLast3MonthsSum': fullStats['analysis']['insidersLast3MonthsSum'],
+				'hedge': fullStats['analysis']['hedgeFundTrend'],
+				'hedgeLastQuaterStocks': fullStats['analysis']['hedgeFundTrendValue'],
+				'technical': fullStats['analysis']['sma'],
+				'fundamental': fullStats['analysis']['fundamentalsReturnOnEquity']
+			}
+		except:
+			print("Could not extract full stats from beststocks")
+		### investors
+		try:
+			investorStats = self.beststocks_api.getInvestorStats(self.tickerName)
+			info['beststocksAnalytics']['investorsTopStat'] = {
+				'avgSizeInPortfolio': investorStats['bestInvestorStatsOverview']['averageAllocation'],
+				'last7DaysTotalChange': investorStats['bestInvestorStatsOverview']['percentOverLast7Days'],
+				'last30DaysTotalChange': investorStats['bestInvestorStatsOverview']['percentOverLast30Days'],
+				'holdingPortfolios': investorStats['bestInvestorStatsOverview']['portfoliosHoldingStock'] / (investorStats['bestInvestorStatsOverview']['numberOfPortfolios'] or 1),
+				'attitude': investorStats['bestInvestorStatsOverview']['sentiment']
+			}
+			info['beststocksAnalytics']['investorsAllStat'] = {
+				'avgSizeInPortfolio': investorStats['investorStatsOverview']['averageAllocation'],
+				'last7DaysTotalChange': investorStats['investorStatsOverview']['percentOverLast7Days'],
+				'last30DaysTotalChange': investorStats['investorStatsOverview']['percentOverLast30Days'],
+				'holdingPortfolios': investorStats['investorStatsOverview']['portfoliosHoldingStock'] / (investorStats['investorStatsOverview']['numberOfPortfolios'] or 1),
+				'attitude': investorStats['investorStatsOverview']['sentiment']
+			}
+		except:
+			print("Could not extract investors stats from beststocks")
+		### news
+		newsStats = self.beststocks_api.getNewsStats(self.tickerName)
+		info['beststocksAnalytics']['news'] = {
+			'bearish': newsStats['bullishBearish']['stockBearish'],
+			'bullish': newsStats['bullishBearish']['stockBullish'],
+			'score': newsStats['newsScore']['stockScore'],
+			'attitude': newsStats['newsScore']['stockScoreSentiment']
+		}
+
 	def fillSettings(self, info):
 		info['_'] = {
 			'webullIdentity': self.tickerId,
@@ -713,6 +792,7 @@ class TickerInfo:
 		self._callWithException(lambda: self.fillInsiderPurchases(info))
 		self._callWithException(lambda: self.fillDividendInfo(info))
 		self._callWithException(lambda: self.fillWallstAnalytics(info))
+		self._callWithException(lambda: self.fillBeststocksAnalytics(info))
 		self._callWithException(lambda: self.fillSettings(info))
 		return info
 

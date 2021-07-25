@@ -274,6 +274,7 @@ class TickerRating():
 			{
 				'anal.buyCountRatio':{'$exists':True, '$gte':0.7}, 
 				'anal.buyCount':{'$exists':True, '$gte':5}, 
+				'anal.targetCostToCurrentRatio':{'$exists':True, '$gt':1}, 
 			}
 		)
 
@@ -411,7 +412,7 @@ class TickerRating():
 			}
 		)
 
-	# treat: money flow in
+	# treat: most investors bought recently
 	def getMoneyFlowIn(self):
 		return self.selector.select(
 			{
@@ -420,6 +421,14 @@ class TickerRating():
 		)
 
 	# treat
+	def getDividendsPaying(self):
+		return self.selector.select(
+			{
+				'dividendes.perShare_%':{'$exists':True, '$gt':0}
+			}
+		)
+
+	# treat: blowing from every corner
 	def getHyped(self):
 		return self.selector.select(
 			{
@@ -430,8 +439,33 @@ class TickerRating():
 			}
 		)
 
+	# treat
+	def getGoodNewsBackground(self):
+		return self.selector.select(
+			{
+				'beststocksAnalytics.news.bullish':{'$exists':True, '$gte':0.85},
+				'beststocksAnalytics.news.attitude':{'$exists':True, "$in":["Positive"]}
+			}
+		)
+
+	# treat
+	def getTopInvestorsBuying(self):
+		return self.selector.select(
+			{
+				'beststocksAnalytics.investorsTopStat.last7DaysTotalChange':{'$exists':True, '$gt':0}
+			}
+		)
+
 	# treat: good according to alternative analytics
-	def getGoodWallst(self):
+	def getGoodScoreBeststocks(self):
+		return self.selector.select(
+			{
+				'beststocksAnalytics.scoreRatio':{'$exists':True, '$gte':0.75}
+			}
+		)
+
+	# treat: good according to alternative analytics
+	def getGoodScoreWallst(self):
 		return self.selector.select(
 			{
 				'$or':[
@@ -470,8 +504,12 @@ class TickerRating():
 			'getAggressor',
 			'getOccupationGrowthBegan',
 			'getHyped',
-			'getGoodWallst',
-			'getMoneyFlowIn'
+			'getGoodScoreWallst',
+			'getMoneyFlowIn',
+			'getDividendsPaying',
+			'getGoodNewsBackground',
+			'getTopInvestorsBuying',
+			'getGoodScoreBeststocks'
 		]
 
 	def getTickersRating(self):
