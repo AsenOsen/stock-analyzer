@@ -357,6 +357,7 @@ class TickerInfo:
 		info['totalShares'] = int(data['totalShares'])
 		info['pe'] = float(data['peTtm']) # Trailing Twelve Months
 		info['eps'] = float(data['epsTtm']) # Trailing Twelve Months
+		info['closenessToHighest'] = info['currentCost'] / float(data['fiftyTwoWkHigh'])
 		info['heldSharesRatio'] = float(data['outstandingShares'])/int(data['totalShares'])
 
 	def fillTickerFinancials(self, info):

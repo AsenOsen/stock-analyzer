@@ -13,9 +13,7 @@ class Storage:
 			raise Exception('collection not exists')
 
 	def select(self, query, aggregate=False):
-		#query['ticker'] = 'SPLK'
 		data = self.collection.find(query) if not aggregate else self.collection.aggregate(query)
-		#print(len(list(data)))
 		return list(data)
 
 	def getTicker(self, ticker):
@@ -380,7 +378,7 @@ class TickerRating():
 		)
 
 	# treat: company`s revenue serged to heaven
-	def getOccupationGrowthBegan(self):
+	def getOccupationGrowthContinue(self):
 		return self.selector.select(
 			{
 				'$expr': {'$gt': ['$income.revenueYoyTrendLatest', '$income.revenueYoyTrend']},
@@ -456,6 +454,14 @@ class TickerRating():
 			}
 		)
 
+	# treat: lower at least 5% then 52-week highest price
+	def getFallen(self):
+		return self.selector.select(
+			{
+				'closenessToHighest':{'$exists':True, '$lte':0.95}
+			}
+		)
+
 	# treat: good according to alternative analytics
 	def getGoodScoreBeststocks(self):
 		return self.selector.select(
@@ -487,44 +493,53 @@ class TickerRating():
 
 	def getIndicators():
 		return [
+			# 
 			'getHoldersInLoss',
-			'getOptionsPositive',
-			'getAnalyticsRecommendBuy',
-			'getSocialAttitudeGood',
+			'getFallen',
 			'getCostBelowFareCost',
-			'getTechnicallyGood',
 			'getDevelopingUnderestimated',
-			'getOccupationGrowing',
+			'getStableGrowing',
+			# 
+			'getAnalyticsRecommendBuy',
+			'getInsiderBuying',
+			'getTopInvestorsBuying',	
+			# 
+			'getGoodScoreWallst',	
+			'getGoodScoreBeststocks',
+			#
+			'getOccupationGrowthContinue', 
+			'getOccupationGrowing',	
+			'getAggressor',
 			'getOperatingEffective',
 			'getProfitable',
-			'getTightShorts',
-			'getStableGrowing',
+			# 
+			'getOptionsPositive',
 			'getResistance5dayBreakout',
-			'getInsiderBuying',
-			'getAggressor',
-			'getOccupationGrowthBegan',
-			'getHyped',
-			'getGoodScoreWallst',
-			'getMoneyFlowIn',
-			'getDividendsPaying',
+			'getTechnicallyGood',	
 			'getGoodNewsBackground',
-			'getTopInvestorsBuying',
-			'getGoodScoreBeststocks'
+			'getTightShorts',
+			'getDividendsPaying',
+			'getMoneyFlowIn',
+			'getHyped',
+			'getSocialAttitudeGood'
 		]
 
 	def getTickersRating(self):
-		treats = TickerRating.getIndicators() + ['_any_'] # to consider empty-indicators stocks
 		indicators = {}
-		for treat in treats:
-			for stock in getattr(self, treat)():
-				if not stock['ticker'] in indicators: 
-					indicators[stock['ticker']]= {}
-					indicators[stock['ticker']]['name'] = stock['name'] if 'name' in stock else None
-					indicators[stock['ticker']]['indicators'] = []
-				if not treat == '_any_':
-					indicators[stock['ticker']]['indicators'].append(treat)
+		for stock in self._any_():
+			if not stock['ticker'] in indicators: 
+				indicators[stock['ticker']]= {}
+				indicators[stock['ticker']]['name'] = stock['name'] if 'name' in stock else None
 				indicators[stock['ticker']]['cost'] = stock['currentCost'] if 'currentCost' in stock else None
-
+				indicators[stock['ticker']]['indicators'] = []
+				indicators[stock['ticker']]['rating'] = 0
+		treats = TickerRating.getIndicators()
+		rateInc = len(treats)
+		for treat in treats:
+			rateInc -= 1 # the lower the treat the lesser its rate
+			for stock in getattr(self, treat)():
+				indicators[stock['ticker']]['indicators'].append(treat)
+				indicators[stock['ticker']]['rating'] += rateInc
 		return indicators
 
 	def printTickerRating(now):
@@ -542,11 +557,12 @@ class TickerRating():
 				'indicators': rating[ticker]['indicators'],
 				'ticker': ticker,
 				'name': rating[ticker]['name'],
-				'cost': rating[ticker]['cost']
+				'cost': rating[ticker]['cost'],
+				'rating': rating[ticker]['rating']
 				})
-		for item in sorted(sortableSet, key=lambda x: len(x['indicators'])):
-			print("%10s (%-10s): %s" % (
-				"%s[%s]" % (item['ticker'], len(item['indicators'])),
+		for item in sorted(sortableSet, key=lambda x: x['rating']): # len(x['indicators'])
+			print("%15s (%-10s): %s" % (
+				"%s[%2s,%3s]" % (item['ticker'], len(item['indicators']), item['rating']),
 				str(item['name'])[:10],
 				' + '.join(item['indicators'])
 			))
