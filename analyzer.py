@@ -378,7 +378,7 @@ class TickerRating():
 		)
 
 	# treat: company`s revenue serged to heaven
-	def getOccupationGrowthContinue(self):
+	def getOccupationGrowthBegan(self):
 		return self.selector.select(
 			{
 				'$expr': {'$gt': ['$income.revenueYoyTrendLatest', '$income.revenueYoyTrend']},
@@ -454,11 +454,11 @@ class TickerRating():
 			}
 		)
 
-	# treat: lower at least 5% then 52-week highest price
+	# treat: lower at least 15% then 52-week highest price
 	def getFallen(self):
 		return self.selector.select(
 			{
-				'closenessToHighest':{'$exists':True, '$lte':0.95}
+				'closenessToHighest':{'$exists':True, '$lte':0.85}
 			}
 		)
 
@@ -496,18 +496,19 @@ class TickerRating():
 			# 
 			'getHoldersInLoss',
 			'getFallen',
-			'getCostBelowFareCost',
-			'getDevelopingUnderestimated',
 			'getStableGrowing',
 			# 
 			'getAnalyticsRecommendBuy',
 			'getInsiderBuying',
 			'getTopInvestorsBuying',	
+			'getCostBelowFareCost',
+			'getDevelopingUnderestimated',
+			'getGoodNewsBackground',
 			# 
 			'getGoodScoreWallst',	
 			'getGoodScoreBeststocks',
 			#
-			'getOccupationGrowthContinue', 
+			'getOccupationGrowthBegan', 
 			'getOccupationGrowing',	
 			'getAggressor',
 			'getOperatingEffective',
@@ -516,7 +517,6 @@ class TickerRating():
 			'getOptionsPositive',
 			'getResistance5dayBreakout',
 			'getTechnicallyGood',	
-			'getGoodNewsBackground',
 			'getTightShorts',
 			'getDividendsPaying',
 			'getMoneyFlowIn',
@@ -536,10 +536,10 @@ class TickerRating():
 		treats = TickerRating.getIndicators()
 		rateInc = len(treats)
 		for treat in treats:
-			rateInc -= 1 # the lower the treat the lesser its rate
 			for stock in getattr(self, treat)():
 				indicators[stock['ticker']]['indicators'].append(treat)
 				indicators[stock['ticker']]['rating'] += rateInc
+			rateInc -= 1 # the lower the treat the lesser its rate
 		return indicators
 
 	def printTickerRating(now):
@@ -592,6 +592,7 @@ class TickerRating():
 				# calculate each indicator performance for specific day
 				for indicator in indicatorForDay:
 					if indicatorForDay[indicator]['was'] != 0:
+						# ..as relative change
 						indicatorRating[indicator] += (indicatorForDay[indicator]['become']-indicatorForDay[indicator]['was']) / indicatorForDay[indicator]['was']
 
 			prevRatings.append(curRating)
@@ -616,7 +617,7 @@ class TickerRating():
 #analyzer.dump(analyzer.getGrowingUnderestimated()) 
 
 date_from = datetime.datetime(2021,6,27)
-#date_till= datetime.datetime(2021,7,8)
+#date_till= datetime.datetime(2021,7,28)
 date_till = datetime.datetime.now()
 TickerRating.printTickerRating(date_till)
 TickerRating.printIndicatorCorrelation(date_from, date_till)

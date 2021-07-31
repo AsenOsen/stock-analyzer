@@ -354,14 +354,16 @@ class TickerInfo:
 			raise Exception('fillCapitalFlow: unknown current cost')
 		info['currentCost'] = float(data['close'])
 		info['name'] = data['name']
-		info['totalShares'] = int(data['totalShares'])
-		info['pe'] = float(data['peTtm']) # Trailing Twelve Months
-		info['eps'] = float(data['epsTtm']) # Trailing Twelve Months
-		info['closenessToHighest'] = info['currentCost'] / float(data['fiftyTwoWkHigh'])
-		info['heldSharesRatio'] = float(data['outstandingShares'])/int(data['totalShares'])
+		info['totalShares'] = int(data['totalShares']) if 'totalShares' in data else None
+		info['pe'] = float(data['peTtm']) if 'peTtm' in data else None  # Trailing Twelve Months
+		info['eps'] = float(data['epsTtm']) if 'epsTtm' in data else None # Trailing Twelve Months
+		info['closenessToHighest'] = info['currentCost'] / float(data['fiftyTwoWkHigh'])  if 'fiftyTwoWkHigh' in data else None
+		info['heldSharesRatio'] = float(data['outstandingShares'])/int(data['totalShares']) if 'outstandingShares' in data else None
 
 	def fillTickerFinancials(self, info):
 		data = self.webull_api.getTickerFinancial(self.tickerId)
+		if 'simpleStatement' not in data or len(data['simpleStatement']) == 0:
+			raise Exception('fillTickerFinancials: missing all info')
 		incomeData = data['simpleStatement'][0]
 		if incomeData['title'] == 'Income Statement':
 			info['income'] = {
@@ -438,7 +440,7 @@ class TickerInfo:
 	def fillShortInterest(self, info):
 		data = self.webull_api.getShortInterest(self.tickerId)
 		if len(data)>0:
-			sharesRatio = float(data[0]['shortInterst']) / info['totalShares'] if 'totalShares'in info else 0
+			sharesRatio = float(data[0]['shortInterst']) / info['totalShares'] if 'totalShares'in info else None
 			info['short'] =  {
 				'date': datetime.datetime.strptime(data[0]['settlementDate'], "%Y-%m-%d"),
 				'sharesCount': int(data[0]['shortInterst']),
@@ -652,12 +654,12 @@ class TickerInfo:
 			info['social_guess']['next_day'] = {
 				'bulls': data['bullTotal'],
 				'bears': data['bearTotal'],
-				'bullRatio': data['bullPct'] / 100.0 if data['bullTotal']>0 else 0
+				'bullRatio': data['bullPct'] / 100.0 if data['bullTotal']>0 else None
 			}
 			info['social_guess']['overall'] = {
 				'bulls': data['guessCountInfo']['bullNum'],
 				'bears': data['guessCountInfo']['bearNum'],
-				'bullRatio': data['guessCountInfo']['bullPct'] / 100.0 if data['guessCountInfo']['bullNum']>0 else 0
+				'bullRatio': data['guessCountInfo']['bullPct'] / 100.0 if data['guessCountInfo']['bullNum']>0 else None
 			}
 		# wsb
 		data = self.stonks_api.getWSBTop()
@@ -706,12 +708,20 @@ class TickerInfo:
 		data = self.webull_api.getDividendinfo(self.tickerId)
 		if data and 'plans' in data and len(data['plans'])>0:
 			latest = data['plans'][0]
+			if 'payDate' not in latest or 'perShare' not in latest:
+				raise Exception('fillDividendInfo: no data')
 			published = datetime.datetime.strptime(latest['payDate'], "%Y-%m-%d")
 			if published > (datetime.datetime.now() - datetime.timedelta(days=365)):
-				info['dividendes'] = {'perShare_%': float(latest['perShare'].split(' ')[1]) / info['currentCost'] * 100}
+				info['dividendes'] = {
+					'perShare_%': (float(latest['perShare'].split(' ')[1]) / info['currentCost'] * 100) if 'currentCost' in info and info['currentCost'] != 0 else None
+					}
 
 	def fillWallstAnalytics(self, info):
-		score = self.wallst_api.getScore(self.tickerName)['data']['score']['data']
+		score = self.wallst_api.getScore(self.tickerName)
+		try:
+			score = score['data']['score']['data']
+		except:
+			raise Exception('fillWallstAnalytics: no data')
 		info['wallstAnalytics'] = {
 			'unfairValueRatio': int(score['value']) / 6.0,
 			'futurePerformanceRatio': int(score['future']) / 6.0,
@@ -741,7 +751,7 @@ class TickerInfo:
 				'fundamental': fullStats['analysis']['fundamentalsReturnOnEquity']
 			}
 		except:
-			print("Could not extract full stats from beststocks")
+			print("Exception | fillBeststocksAnalytics: could not extract full stats from beststocks")
 		### investors
 		try:
 			investorStats = self.beststocks_api.getInvestorStats(self.tickerName)
@@ -760,14 +770,14 @@ class TickerInfo:
 				'attitude': investorStats['investorStatsOverview']['sentiment']
 			}
 		except:
-			print("Could not extract investors stats from beststocks")
+			print("Exception | fillBeststocksAnalytics: could not extract investors stats from beststocks")
 		### news
 		newsStats = self.beststocks_api.getNewsStats(self.tickerName)
 		info['beststocksAnalytics']['news'] = {
-			'bearish': newsStats['bullishBearish']['stockBearish'],
-			'bullish': newsStats['bullishBearish']['stockBullish'],
-			'score': newsStats['newsScore']['stockScore'],
-			'attitude': newsStats['newsScore']['stockScoreSentiment']
+			'bearish': newsStats['bullishBearish']['stockBearish'] if 'bullishBearish' in newsStats else None,
+			'bullish': newsStats['bullishBearish']['stockBullish'] if 'bullishBearish' in newsStats else None,
+			'score': newsStats['newsScore']['stockScore'] if 'newsScore' in newsStats else None,
+			'attitude': newsStats['newsScore']['stockScoreSentiment'] if 'newsScore' in newsStats else None
 		}
 
 	def fillSettings(self, info):
