@@ -1,6 +1,7 @@
 import pymongo
 import datetime
 import math
+import itertools
 
 class Storage:
 	def __init__(self, date):
@@ -567,12 +568,16 @@ class TickerRating():
 				' + '.join(item['indicators'])
 			))
 
-	def printIndicatorCorrelation(start, end):
+	def printIndicatorCorrelation(start, end, deepness):
 		current = start
 		prevRatings = []
-		indicatorRating = {indicatorName:0 for indicatorName in TickerRating.getIndicators()}
+		indicatorMultipleRating = {}
+		for number in range(1,deepness+1):
+			for indicatorGroup in itertools.combinations(TickerRating.getIndicators(), number):
+				indicatorMultipleRating['+'.join(indicatorGroup)] = {'rating': 0, 'hits':set(), 'group': indicatorGroup}
 		while current<=end:
 			try:
+				print(current)
 				rating = TickerRating(current)
 			except:
 				current += datetime.timedelta(days=1)
@@ -581,25 +586,30 @@ class TickerRating():
 
 			# go through all previous days
 			for prevRating in prevRatings:
+				indicatorForDay = {complexName:{'was':0, 'become':0, 'hits':set()} for complexName in indicatorMultipleRating}
 				# go through all ticker in specific previous day
-				indicatorForDay = {indicatorName:{'was':0, 'become':0} for indicatorName in TickerRating.getIndicators()}
 				for ticker in prevRating:
 					if ticker in curRating and curRating[ticker]['cost'] is not None and prevRating[ticker]['cost'] is not None:
 						# go through all ticker`s indicators in that previous day
-						for indicator in prevRating[ticker]['indicators']:
-							indicatorForDay[indicator]['was'] += prevRating[ticker]['cost']
-							indicatorForDay[indicator]['become'] += curRating[ticker]['cost']
+						for number in range(1,deepness+1): 
+							for indicatorGroup in itertools.combinations(prevRating[ticker]['indicators'], number):
+								complexName = '+'.join(indicatorGroup)
+								indicatorForDay[complexName]['was'] += prevRating[ticker]['cost']
+								indicatorForDay[complexName]['become'] += curRating[ticker]['cost']
+								#indicatorForDay[complexName]['hits'].add(ticker)
 				# calculate each indicator performance for specific day
-				for indicator in indicatorForDay:
-					if indicatorForDay[indicator]['was'] != 0:
+				for complexName in indicatorForDay:
+					if indicatorForDay[complexName]['was'] != 0:
 						# ..as relative change
-						indicatorRating[indicator] += (indicatorForDay[indicator]['become']-indicatorForDay[indicator]['was']) / indicatorForDay[indicator]['was']
+						indicatorMultipleRating[complexName]['rating'] += (indicatorForDay[complexName]['become']-indicatorForDay[complexName]['was']) / indicatorForDay[complexName]['was']
+						#indicatorMultipleRating[complexName]['hits'] = indicatorMultipleRating[complexName]['hits'].union(indicatorForDay[complexName]['hits'])
 
 			prevRatings.append(curRating)
 			current += datetime.timedelta(days=1)
 		print("="*100)
-		for indicator in indicatorRating:
-			print(f"= {indicator} = {round(indicatorRating[indicator], 3)}")
+		sortedIndicators = {k:v for k,v in sorted(indicatorMultipleRating.items(), key=lambda item: item[1]['rating'], reverse=True)}
+		for indicator in sortedIndicators:
+			print(f"= {indicator} = {round(indicatorMultipleRating[indicator]['rating'], 3)} ({len(indicatorMultipleRating[indicator]['hits'])})")
 		print("="*100)
 
 
@@ -620,4 +630,4 @@ date_from = datetime.datetime(2021,6,27)
 #date_till= datetime.datetime(2021,7,28)
 date_till = datetime.datetime.now()
 TickerRating.printTickerRating(date_till)
-TickerRating.printIndicatorCorrelation(date_from, date_till)
+TickerRating.printIndicatorCorrelation(date_from, date_till, deepness=3)

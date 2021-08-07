@@ -13,7 +13,7 @@ import urllib3
 
 class HttpApi:
 
-	def request(self, host, path, headers = {}, body = None, protocol = 'https://'):
+	def _request_internal(self, host, path, headers = {}, body = None, protocol = 'https://'):
 		headers['User-Agent'] = 'okhttp/3.12.1'
 		headers['Host'] = host
 		url = protocol + host + path
@@ -23,6 +23,13 @@ class HttpApi:
 		else:
 			response = requests.post(url, headers = headers, data = body, timeout=5, verify=False).content
 		return response
+
+	def request(self, host, path, headers = {}, body = None, protocol = 'https://'):
+		try:
+			return self._request_internal(host, path, headers, body, protocol)
+		except:
+			time.sleep(2)
+			return self._request_internal(host, path, headers, body, protocol)
 
 
 class JsonApi(HttpApi):
@@ -331,7 +338,9 @@ class TickerInfo:
 		startDate = (endDate - datetime.timedelta(days=7))
 		data = self.webull_api.getChipQuery(self.tickerId, startDate.strftime('%Y-%m-%d'), endDate.strftime('%Y-%m-%d'))
 		if not data:
-			raise Exception('fillCostDistribution: missing distribution data')
+			data = self.webull_api.getChipQuery(self.tickerId, startDate.strftime('%Y-%m-%d'), endDate.strftime('%Y-%m-%d'))
+			if not data:
+				raise Exception('fillCostDistribution: missing distribution data')
 		if not 'data' in data or not data['data']:
 			raise Exception('fillCostDistribution: empty distribution data')
 		avgCost = float(data['data'][0]['avgCost'])
