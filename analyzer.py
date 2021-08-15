@@ -376,24 +376,46 @@ class TickerRating():
 								complexName = '+'.join(indicatorGroup)
 								indicatorForDay[complexName]['was'] += prevRating[ticker]['cost']
 								indicatorForDay[complexName]['become'] += curRating[ticker]['cost']
-								#indicatorForDay[complexName]['hits'].add(ticker)
+								indicatorMultipleRating[complexName]['hits'].add(ticker)
 				# calculate each indicator performance for specific day
 				for complexName in indicatorForDay:
 					if indicatorForDay[complexName]['was'] != 0:
 						# ..as relative change
 						indicatorMultipleRating[complexName]['rating'] += (indicatorForDay[complexName]['become']-indicatorForDay[complexName]['was']) / indicatorForDay[complexName]['was']
-						#indicatorMultipleRating[complexName]['hits'] = indicatorMultipleRating[complexName]['hits'].union(indicatorForDay[complexName]['hits'])
-
 			prevRatings.append(curRating)
 			current += datetime.timedelta(days=1)
 		print("="*100)
-		sortedIndicators = {k:v for k,v in sorted(indicatorMultipleRating.items(), key=lambda item: item[1]['rating'], reverse=True)}
-		for indicator in sortedIndicators:
-			print(f"= {indicator} = {round(indicatorMultipleRating[indicator]['rating'], 3)} ({len(indicatorMultipleRating[indicator]['hits'])})")
+		tickerComplexRatingBestWorstDiff = {}
+		indicators = {k:v for k,v in sorted(indicatorMultipleRating.items(), key=lambda item: item[1]['rating'], reverse=True)}
+		for indicator in indicators:
+			# determine current tickers having this indicator
+			currentTickersUnderIndicator = []
+			for ticker in prevRatings[-1]:
+				if set(indicatorMultipleRating[indicator]['group']).issubset(set(prevRatings[-1][ticker]['indicators'])):
+					currentTickersUnderIndicator.append(ticker)
+					# calculate best/worst rating prevalence
+					if ticker not in tickerComplexRatingBestWorstDiff:
+						tickerComplexRatingBestWorstDiff[ticker] = {'total':0}
+					if 'best' not in tickerComplexRatingBestWorstDiff[ticker] or indicatorMultipleRating[indicator]['rating']>tickerComplexRatingBestWorstDiff[ticker]['best']:
+						tickerComplexRatingBestWorstDiff[ticker]['best'] = indicatorMultipleRating[indicator]['rating']
+					if 'worst' not in tickerComplexRatingBestWorstDiff[ticker] or indicatorMultipleRating[indicator]['rating']<tickerComplexRatingBestWorstDiff[ticker]['worst']:
+						tickerComplexRatingBestWorstDiff[ticker]['worst'] = indicatorMultipleRating[indicator]['rating']
+					tickerComplexRatingBestWorstDiff[ticker]['total'] += indicatorMultipleRating[indicator]['rating'] 
+			# output
+			print(f"= {indicator} = {round(indicatorMultipleRating[indicator]['rating'], 3)} | tickers(hits={len(indicatorMultipleRating[indicator]['hits'])}, now={len(currentTickersUnderIndicator)}) = {', '.join(currentTickersUnderIndicator[:20])}")
 		print("="*100)
+		# sort by diff
+		for item in sorted(tickerComplexRatingBestWorstDiff.items(), key=lambda item: item[1]['best']+item[1]['worst'], reverse=True):
+			print(f"{item[0]} : diff={item[1]['best']+item[1]['worst']}, total={item[1]['total']}")
+		print("="*100)
+		# sort by total
+		for item in sorted(tickerComplexRatingBestWorstDiff.items(), key=lambda item: item[1]['total'], reverse=True):
+			print(f"{item[0]} : total={item[1]['total']}, diff={item[1]['best']+item[1]['worst']}")
+		print("="*100)
+
 
 date_from = datetime.datetime(2021,6,27)
 #date_till= datetime.datetime(2021,7,28)
 date_till = datetime.datetime.now()
 TickerRating.printTickerRating(date_till)
-TickerRating.printIndicatorCorrelation(date_from, date_till, deepness=3)
+TickerRating.printIndicatorCorrelation(date_from, date_till, deepness=4)
