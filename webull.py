@@ -413,12 +413,14 @@ class TickerInfo:
 		institutionsInflow = data['latest']['item']['majorInflow']
 		retailOutflow = data['latest']['item']['retailOutflow']
 		institutionsOutflow = data['latest']['item']['majorOutflow']
+		largeNetFlow = data['latest']['item']['largeNetFlow'] + data['latest']['item']['superLargeNetFlow']
 		totalInflow = retailInflow + institutionsInflow
 		totalOutflow = retailOutflow + institutionsOutflow
 		if totalOutflow==0: totalOutflow += 0.01
 		info['flows'] = {
 			'inflow': totalInflow,
 			'outflow': totalOutflow,
+			'largeflow': largeNetFlow,
 			'inflowToOutflowRatio': totalInflow / float(totalOutflow)
 		}
 

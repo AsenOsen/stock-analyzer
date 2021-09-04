@@ -251,6 +251,14 @@ class TickerRating():
 			}
 		)
 
+	# treat: large purchases was detected (probably hedge funds)
+	def getBigFishesBuying(self):
+		return self.selector.select(
+			{
+				'flows.largeflow':{'$exists':True, '$gt':0}
+			}
+		)
+
 	# treat: good according to alternative analytics
 	def getGoodScoreWallst(self):
 		return self.selector.select(
@@ -282,6 +290,7 @@ class TickerRating():
 			'getAnalyticsRecommendBuy',
 			'getInsiderBuying',
 			'getTopInvestorsBuying',	
+			'getBigFishesBuying',
 			'getCostBelowFareCost',
 			'getDevelopingUnderestimated',
 			'getGoodNewsBackground',
