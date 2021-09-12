@@ -136,7 +136,7 @@ class TickerRating():
 			}
 		)
 
-	# treat: good managed because income growth growing from year to year
+	# treat: good managed because more and more money settles on company`s balance
 	def getOperatingEffective(self):
 		return self.selector.select(
 			{
@@ -282,34 +282,36 @@ class TickerRating():
 
 	def getIndicators():
 		return [
-			# 
-			'getHoldersInLoss',
-			'getFallen',
+			# company is relient
 			'getStableGrowing',
-			# 
-			'getAnalyticsRecommendBuy',
+			'getOperatingEffective',
+			'getOccupationGrowing',	
+			'getProfitable',
+			# company fall recently
+			'getFallen',
+			'getHoldersInLoss',
+			'getCostBelowFareCost',
+			'getDevelopingUnderestimated',			
+			# smart heads interested in company
 			'getInsiderBuying',
 			'getTopInvestorsBuying',	
 			'getBigFishesBuying',
-			'getCostBelowFareCost',
-			'getDevelopingUnderestimated',
+			# company continues growing
+			'getOccupationGrowthBegan',
+			'getAggressor',
+			# positve behaviour
+			'getAnalyticsRecommendBuy',
+			'getOptionsPositive',
 			'getGoodNewsBackground',
-			# 
+			# independent analitycs postitive
 			'getGoodScoreWallst',	
 			'getGoodScoreBeststocks',
 			#
-			'getOccupationGrowthBegan', 
-			'getOccupationGrowing',	
-			'getAggressor',
-			'getOperatingEffective',
-			'getProfitable',
-			# 
-			'getOptionsPositive',
 			'getResistance5dayBreakout',
+			'getMoneyFlowIn',
 			'getTechnicallyGood',	
 			'getTightShorts',
-			'getDividendsPaying',
-			'getMoneyFlowIn',
+			'getDividendsPaying',			
 			'getHyped',
 			'getSocialAttitudeGood'
 		]
@@ -328,7 +330,7 @@ class TickerRating():
 		for treat in treats:
 			for stock in getattr(self, treat)():
 				indicators[stock['ticker']]['indicators'].append(treat)
-				indicators[stock['ticker']]['rating'] += rateInc
+				indicators[stock['ticker']]['rating'] += 2**rateInc
 			rateInc -= 1 # the lower the treat the lesser its rate
 		return indicators
 
@@ -341,23 +343,15 @@ class TickerRating():
 			except Exception as e:
 				now -= datetime.timedelta(days=1)
 				continue
-		sortableSet = []
-		for ticker in rating:
-			sortableSet.append({
-				'indicators': rating[ticker]['indicators'],
-				'ticker': ticker,
-				'name': rating[ticker]['name'],
-				'cost': rating[ticker]['cost'],
-				'rating': rating[ticker]['rating']
-				})
-		for item in sorted(sortableSet, key=lambda x: x['rating']): # len(x['indicators'])
-			print("%15s (%-10s): %s" % (
-				"%s[%2s,%3s]" % (item['ticker'], len(item['indicators']), item['rating']),
-				str(item['name'])[:10],
-				' + '.join(item['indicators'])
+		for item in sorted(rating.items(), key=lambda x: x[1]['rating']):
+			print("%20s (%-10s): %s" % (
+				"%s[%2s,%3s]" % (item[0], len(item[1]['indicators']), item[1]['rating']),
+				str(item[1]['name'])[:10],
+				' + '.join(item[1]['indicators'])
 			))
 
 	def printIndicatorCorrelation(start, end, deepness):
+		bestTickersHistoryStats = {}
 		current = start
 		prevRatings = []
 		indicatorMultipleRating = {}
@@ -376,6 +370,16 @@ class TickerRating():
 			# go through all previous days
 			for prevRating in prevRatings:
 				indicatorForDay = {complexName:{'was':0, 'become':0, 'hits':set()} for complexName in indicatorMultipleRating}
+				'''  HISTORY GROWTH STATS '''
+				for item in sorted(prevRating.items(), key=lambda x: x[1]['rating'])[-5:]:
+					ticker = item[0]
+					if ticker not in bestTickersHistoryStats:
+						bestTickersHistoryStats[ticker] = {'first_price': prevRating[ticker]['cost'], 'best_ratio': 0}
+				for ticker in bestTickersHistoryStats:
+					if ticker in curRating and curRating[ticker]['cost'] is not None and bestTickersHistoryStats[ticker]['first_price'] is not None:
+						ratio = curRating[ticker]['cost']/float(bestTickersHistoryStats[ticker]['first_price'])
+						bestTickersHistoryStats[ticker]['best_ratio'] = bestTickersHistoryStats[ticker]['best_ratio'] if ratio < bestTickersHistoryStats[ticker]['best_ratio'] else ratio
+				''' COMPLEX RATING ''' 
 				# go through all ticker in specific previous day
 				for ticker in prevRating:
 					if ticker in curRating and curRating[ticker]['cost'] is not None and prevRating[ticker]['cost'] is not None:
@@ -393,6 +397,14 @@ class TickerRating():
 						indicatorMultipleRating[complexName]['rating'] += (indicatorForDay[complexName]['become']-indicatorForDay[complexName]['was']) / indicatorForDay[complexName]['was']
 			prevRatings.append(curRating)
 			current += datetime.timedelta(days=1)
+		''' show history stats '''
+		print("="*100)
+		plus = 0
+		for item in sorted(bestTickersHistoryStats.items(), key=lambda x: x[1]['best_ratio']):
+			print(f"{item[0]} - {item[1]['best_ratio']}")
+			plus += 1 if item[1]['best_ratio']>1 else 0
+		print(f"--- {plus/len(bestTickersHistoryStats.items())}% growth")
+		''' show complex rating '''
 		print("="*100)
 		tickerComplexRatingBestWorstDiff = {}
 		indicators = {k:v for k,v in sorted(indicatorMultipleRating.items(), key=lambda item: item[1]['rating'], reverse=True)}
