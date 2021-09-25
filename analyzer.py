@@ -2,6 +2,7 @@ import pymongo
 import datetime
 import math
 import itertools
+import argparse
 
 class Storage:
 	def __init__(self, date):
@@ -281,40 +282,40 @@ class TickerRating():
 		return self.selector.select({})
 
 	def getIndicators():
-		return [
+		return {
 			# company is relient
-			'getStableGrowing',
-			'getOperatingEffective',
-			'getOccupationGrowing',	
-			'getProfitable',
+			'getStableGrowing': {'in':'Стабильный рост цены (в течение 1 года и 5 лет)', 'out':'Нет стабильного роста цены (в течение 1 года и 5 лет)'},
+			'getOperatingEffective': {'in':'Эффективно управляется (растет темп прибыли из года в год)', 'out':'Неэффективно управляется (темп прибыли не растет из года в год)'},
+			'getOccupationGrowing': {'in':'Стабильно захватывает долю на рынке (выручка растет из года в год)', 'out':'Стагнирует (выручка не растет из года в год)'},
+			'getProfitable': {'in':'Прибыльная', 'out':'Убыточная'},
 			# company fall recently
-			'getFallen',
-			'getHoldersInLoss',
-			'getCostBelowFareCost',
-			'getDevelopingUnderestimated',			
+			'getFallen': {'in':'Упала относительно хаев за последний год', 'out':'Близко к хаям за последний год'},
+			'getHoldersInLoss': {'in':'Много держателей в минусе', 'out':'Много держателей в плюсе'},
+			'getCostBelowFareCost': {'in':'Цена ниже справедливой (той, что должна быть согласно тренду)', 'out':'Цена выше справедливой (той, что должна быть согласно тренду)'},
+			'getDevelopingUnderestimated': {'in':'Недооценена (прибыль растет быстрее цены)', 'out':'Переоценена (цена растет быстрее прибыли)'},
 			# smart heads interested in company
-			'getInsiderBuying',
-			'getTopInvestorsBuying',	
-			'getBigFishesBuying',
+			'getInsiderBuying': {'in':'Закупаются инсайдеры', 'out':'Не было замечено покупок инсайдерами за последнее время'},
+			'getTopInvestorsBuying': {'in':'Закупаются лучшие инвесторы', 'out':'Лучшие инвесторы не закупались за последнее время'},
+			'getBigFishesBuying': {'in':'Закупаются крупные игроки', 'out':'Крупные игроки не закупались за последнее время'},
+			'getAnalyticsRecommendBuy': {'in':'Аналитики рекомендуют к покупке', 'out':'Аналитики не рекомендуют к покупке'},
 			# company continues growing
-			'getOccupationGrowthBegan',
-			'getAggressor',
+			'getOccupationGrowthBegan': {'in':'Замечен скачек захвата доли рынка за последний год', 'out':'За последний год не было скачка захвата доли рынка'},
+			'getAggressor': {'in':'Агрессор (активно наращивает прибыль и забирает долю рынка)', 'out':'Заторможенность (не наращивает прибыль и долю рынка)'},
 			# positve behaviour
-			'getAnalyticsRecommendBuy',
-			'getOptionsPositive',
-			'getGoodNewsBackground',
+			'getOptionsPositive': {'in':'Позитивный настрой по опционам', 'out':'Негативный настрой по опционам'},
+			'getGoodNewsBackground': {'in':'Позитивный новостной фон', 'out':'Негативный новостной фон'},
 			# independent analitycs postitive
-			'getGoodScoreWallst',	
-			'getGoodScoreBeststocks',
+			'getGoodScoreWallst': {'in':'Высокая оценка независимым аналитическим сервисом wallst', 'out':'Низкая оценка независимым аналитическим сервисом wallst'},
+			'getGoodScoreBeststocks': {'in':'Высокая оценка независимым аналитическим сервисом beststocks', 'out':'Низкая оценка независимым аналитическим сервисом beststocks'},
 			#
-			'getResistance5dayBreakout',
-			'getMoneyFlowIn',
-			'getTechnicallyGood',	
-			'getTightShorts',
-			'getDividendsPaying',			
-			'getHyped',
-			'getSocialAttitudeGood'
-		]
+			'getResistance5dayBreakout': {'in':'Прорыв линии сопротивления за последние 5 дней', 'out':'Не было прорыва линии сопротивления за последние 5 дней'},
+			'getMoneyFlowIn': {'in':'Акции чаще покупают, чем продают', 'out':'Акции чаще продают, чем покупают'},
+			'getTechnicallyGood': {'in':'Технически хорошая (хорошие показатели PE и EPS)', 'out':'Технически плохая (плохие показатели PE и EPS)'},
+			'getTightShorts': {'in':'Тугие шорты', 'out':'Нет большого объема шорт-позиций'},
+			'getDividendsPaying': {'in':'Платит дивиденды', 'out':'Не платит дивиденды'},
+			'getHyped': {'in':'Хайповая', 'out':'Не хайповая'},
+			'getSocialAttitudeGood': {'in':'Позитивный социальный настрой', 'out':'Негативный социальный настрой'}
+		}
 
 	def getTickersRating(self):
 		indicators = {}
@@ -325,7 +326,7 @@ class TickerRating():
 				indicators[stock['ticker']]['cost'] = stock['currentCost'] if 'currentCost' in stock else None
 				indicators[stock['ticker']]['indicators'] = []
 				indicators[stock['ticker']]['rating'] = 0
-		treats = TickerRating.getIndicators()
+		treats = TickerRating.getIndicators().keys()
 		rateInc = len(treats)
 		for treat in treats:
 			for stock in getattr(self, treat)():
@@ -334,21 +335,33 @@ class TickerRating():
 			rateInc -= 1 # the lower the treat the lesser its rate
 		return indicators
 
-	def printTickerRating(now):
-		rating = None
+	def _getLatestRating(closestDate):
 		while True:
 			try:
-				rating = TickerRating(now).getTickersRating()
-				break
+				return TickerRating(closestDate).getTickersRating()
 			except Exception as e:
-				now -= datetime.timedelta(days=1)
+				closestDate -= datetime.timedelta(days=1)
 				continue
-		for item in sorted(rating.items(), key=lambda x: x[1]['rating']):
+
+	def printTickerRating(now):
+		for item in sorted(TickerRating._getLatestRating(now).items(), key=lambda x: x[1]['rating']):
 			print("%20s (%-10s): %s" % (
 				"%s[%2s,%3s]" % (item[0], len(item[1]['indicators']), item[1]['rating']),
 				str(item[1]['name'])[:10],
 				' + '.join(item[1]['indicators'])
 			))
+
+	def printTickersReport(ticker:str):
+		tickers = TickerRating._getLatestRating(datetime.datetime.now())
+		place = sum(1 for item in tickers if tickers[item]['rating']>tickers[ticker]['rating']) + 1
+		indicators = TickerRating.getIndicators()
+		print(f"\n${ticker} ({place} место среди {len(tickers.keys())} тикеров)")
+		print("\n--- Плюсы:")
+		for indicator in tickers[ticker]['indicators']:
+			print(f" - {indicators[indicator]['in']}")
+		print("\n--- Минусы:")
+		for indicator in set(indicators.keys())-set(tickers[ticker]['indicators']):
+			print(f" - {indicators[indicator]['out']}")
 
 	def printIndicatorCorrelation(start, end, deepness):
 		bestTickersHistoryStats = {}
@@ -356,7 +369,7 @@ class TickerRating():
 		prevRatings = []
 		indicatorMultipleRating = {}
 		for number in range(1,deepness+1):
-			for indicatorGroup in itertools.combinations(TickerRating.getIndicators(), number):
+			for indicatorGroup in itertools.combinations(TickerRating.getIndicators().keys(), number):
 				indicatorMultipleRating['+'.join(indicatorGroup)] = {'rating': 0, 'hits':set(), 'group': indicatorGroup}
 		while current<=end:
 			try:
@@ -398,14 +411,14 @@ class TickerRating():
 			prevRatings.append(curRating)
 			current += datetime.timedelta(days=1)
 		''' show history stats '''
-		print("="*100)
+		print("="*100 + " (best by rating history growth score)")
 		plus = 0
 		for item in sorted(bestTickersHistoryStats.items(), key=lambda x: x[1]['best_ratio']):
 			print(f"{item[0]} - {item[1]['best_ratio']}")
 			plus += 1 if item[1]['best_ratio']>1 else 0
 		print(f"--- {plus/len(bestTickersHistoryStats.items())}% growth")
 		''' show complex rating '''
-		print("="*100)
+		print("="*100 + "(complex ratings score)")
 		tickerComplexRatingBestWorstDiff = {}
 		indicators = {k:v for k,v in sorted(indicatorMultipleRating.items(), key=lambda item: item[1]['rating'], reverse=True)}
 		for indicator in indicators:
@@ -424,19 +437,43 @@ class TickerRating():
 					tickerComplexRatingBestWorstDiff[ticker]['total'] += indicatorMultipleRating[indicator]['rating'] 
 			# output
 			print(f"= {indicator} = {round(indicatorMultipleRating[indicator]['rating'], 3)} | tickers(hits={len(indicatorMultipleRating[indicator]['hits'])}, now={len(currentTickersUnderIndicator)}) = {', '.join(currentTickersUnderIndicator[:20])}")
-		print("="*100)
+		print("="*100 + " (best+worst score)")
 		# sort by diff
 		for item in sorted(tickerComplexRatingBestWorstDiff.items(), key=lambda item: item[1]['best']+item[1]['worst'], reverse=True):
-			print(f"{item[0]} : diff={item[1]['best']+item[1]['worst']}, total={item[1]['total']}")
-		print("="*100)
+			print(f"{item[0]} : best+worst={item[1]['best']+item[1]['worst']}, total={item[1]['total']}")
+		print("="*100 + " (overall combinations sum score)")
 		# sort by total
 		for item in sorted(tickerComplexRatingBestWorstDiff.items(), key=lambda item: item[1]['total'], reverse=True):
-			print(f"{item[0]} : total={item[1]['total']}, diff={item[1]['best']+item[1]['worst']}")
+			print(f"{item[0]} : totalSum={item[1]['total']}, diff={item[1]['best']+item[1]['worst']}")
 		print("="*100)
 
 
-date_from = datetime.datetime(2021,6,27)
-#date_till= datetime.datetime(2021,7,28)
-date_till = datetime.datetime.now()
-TickerRating.printTickerRating(date_till)
-TickerRating.printIndicatorCorrelation(date_from, date_till, deepness=4)
+class UserInterface:
+
+	def __init__(self):
+		parser = argparse.ArgumentParser(description='Collected stocks data analyzer')
+		subparsers = parser.add_subparsers(dest="command", help='Commands')
+		fullreport = subparsers.add_parser('fullreport', help='Print full report for all tickers')
+		fullreport.add_argument('--no-corr', dest='nocorr', action='store_true', default=False, help='Without correlation calculation')
+		ticker = subparsers.add_parser('ticker', help='Report for single ticker')
+		ticker.add_argument('ticker', help='Ticker')
+		self.args = parser.parse_args()
+
+	def go(self):
+		if self.args.command == 'fullreport':
+			self.fullreport(self.args.nocorr)
+		elif self.args.command == 'ticker':
+			self.ticker(self.args.ticker)
+
+	def fullreport(self, without_correlation):
+		date_from = datetime.datetime(2021,6,27)
+		#date_till= datetime.datetime(2021,7,28)
+		date_till = datetime.datetime.now()
+		TickerRating.printTickerRating(date_till)
+		if not without_correlation:
+			TickerRating.printIndicatorCorrelation(date_from, date_till, deepness=4)
+
+	def ticker(self, tickerName):
+		TickerRating.printTickersReport(tickerName)
+
+UserInterface().go()
