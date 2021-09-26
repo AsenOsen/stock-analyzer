@@ -310,7 +310,7 @@ class TickerRating():
 			#
 			'getResistance5dayBreakout': {'in':'Прорыв линии сопротивления за последние 5 дней', 'out':'Не было прорыва линии сопротивления за последние 5 дней'},
 			'getMoneyFlowIn': {'in':'Акции чаще покупают, чем продают', 'out':'Акции чаще продают, чем покупают'},
-			'getTechnicallyGood': {'in':'Технически хорошая (хорошие показатели PE и EPS)', 'out':'Технически плохая (плохие показатели PE и EPS)'},
+			'getTechnicallyGood': {'in':'Технически хорошая (хорошие показатели PE/EPS)', 'out':'Технически плохая (плохие показатели PE/EPS)'},
 			'getTightShorts': {'in':'Тугие шорты', 'out':'Нет большого объема шорт-позиций'},
 			'getDividendsPaying': {'in':'Платит дивиденды', 'out':'Не платит дивиденды'},
 			'getHyped': {'in':'Хайповая', 'out':'Не хайповая'},
@@ -343,25 +343,39 @@ class TickerRating():
 				closestDate -= datetime.timedelta(days=1)
 				continue
 
-	def printTickerRating(now):
+	def getTickerReport(ticker:str):
+		ticker = ticker.upper()
+		tickers = TickerRating._getLatestRating(datetime.datetime.now())
+		if not ticker in tickers:
+			return None
+		indicators = TickerRating.getIndicators()
+		report = {
+			'ticker': ticker,
+			'place': sum(1 for item in tickers if tickers[item]['rating']>tickers[ticker]['rating']) + 1,
+			'total': len(tickers.keys()),
+			'name': tickers[ticker]['name'],
+			'pluses': [],
+			'minuses': []
+			}
+		for indicator in tickers[ticker]['indicators']:
+			report['pluses'].append(indicators[indicator]['in'])
+		for indicator in set(indicators.keys())-set(tickers[ticker]['indicators']):
+			report['minuses'].append(indicators[indicator]['out'])
+		return report
+
+	def printTickerReport(ticker:str):
+		report = TickerRating.getTickerReport(ticker)
+		print(f"${ticker}({report['name']}): {report['place']} место среди {report['total']} тикеров\n")
+		for plus in report['pluses']: print(f" + {plus}")
+		for minus in report['minuses']: print(f" - {minus}")
+
+	def printTickersRating(now):
 		for item in sorted(TickerRating._getLatestRating(now).items(), key=lambda x: x[1]['rating']):
 			print("%20s (%-10s): %s" % (
 				"%s[%2s,%3s]" % (item[0], len(item[1]['indicators']), item[1]['rating']),
 				str(item[1]['name'])[:10],
 				' + '.join(item[1]['indicators'])
 			))
-
-	def printTickersReport(ticker:str):
-		tickers = TickerRating._getLatestRating(datetime.datetime.now())
-		place = sum(1 for item in tickers if tickers[item]['rating']>tickers[ticker]['rating']) + 1
-		indicators = TickerRating.getIndicators()
-		print(f"\n${ticker} ({place} место среди {len(tickers.keys())} тикеров)")
-		print("\n--- Плюсы:")
-		for indicator in tickers[ticker]['indicators']:
-			print(f" - {indicators[indicator]['in']}")
-		print("\n--- Минусы:")
-		for indicator in set(indicators.keys())-set(tickers[ticker]['indicators']):
-			print(f" - {indicators[indicator]['out']}")
 
 	def printIndicatorCorrelation(start, end, deepness):
 		bestTickersHistoryStats = {}
@@ -469,11 +483,12 @@ class UserInterface:
 		date_from = datetime.datetime(2021,6,27)
 		#date_till= datetime.datetime(2021,7,28)
 		date_till = datetime.datetime.now()
-		TickerRating.printTickerRating(date_till)
+		TickerRating.printTickersRating(date_till)
 		if not without_correlation:
 			TickerRating.printIndicatorCorrelation(date_from, date_till, deepness=4)
 
 	def ticker(self, tickerName):
-		TickerRating.printTickersReport(tickerName)
+		TickerRating.printTickerReport(tickerName)
 
-UserInterface().go()
+if __name__ == '__main__':
+	UserInterface().go()

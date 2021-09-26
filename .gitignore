@@ -3,5 +3,5 @@ lib64/
 bin/
 include/
 pyvenv.cfg
-run.sh
 latest_report
+__pycache__/

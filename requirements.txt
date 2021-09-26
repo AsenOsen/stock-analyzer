@@ -1,0 +1,4 @@
+pymongo
+argparse
+Jinja2
+python-telegram-bot

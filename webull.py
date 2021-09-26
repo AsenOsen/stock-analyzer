@@ -943,5 +943,5 @@ class UserInterface:
 			comments.append(item['comment'])
 		self.printFeedData(comments)
 
-
-UserInterface().go()
+if __name__ == '__main__':
+	UserInterface().go()

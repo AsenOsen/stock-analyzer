@@ -1,0 +1,11 @@
+<b><u>${{ ticker }}({{ name }})</u>: {{ place }} место среди {{ total }} тикеров</b>
+
+<b>+++ Плюсы:</b>
+{%- for plus in pluses %}
+	🟢 {{ plus }}
+{%- endfor %}
+
+<b>--- Минусы:</b>
+{%- for minus in minuses %}
+	🔴 {{ minus }}
+{%- endfor %}
