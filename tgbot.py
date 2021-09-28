@@ -16,22 +16,26 @@ def _render_template(template:str, **args):
 
 
 def start(update, context):
-    update.message.reply_text(_render_template('start'), parse_mode= 'HTML')
     logging.getLogger('START').info(update)
+    update.message.reply_text(_render_template('start'), parse_mode= 'HTML')
 
 
 def help(update, context):
-    update.message.reply_text( _render_template('help'), parse_mode= 'HTML')
     logging.getLogger('HELP').info(update)
+    update.message.reply_text( _render_template('help'), parse_mode= 'HTML')
 
 
 def ticker(update, context):
+    logging.getLogger('TICKER').info(update)
     ticker = update.message.text
     report = analyzer.TickerRating.getTickerReport(ticker)
-    msg = _render_template('ticker_404') if not report else _render_template(
-        'ticker', ticker=report['ticker'], name=report['name'], place=report['place'], total=report['total'], pluses=report['pluses'], minuses=report['minuses'])
+    if report:
+        msg = _render_template('ticker', ticker=report['ticker'], name=report['name'], place=report['place'], total=report['total'], pluses=report['pluses'], minuses=report['minuses'])
+        logging.getLogger('TICKER_RESULT').info('SUCCESS')
+    else:
+        msg = _render_template('ticker_404') 
+        logging.getLogger('TICKER_RESULT').info('FAIL')
     update.message.reply_text(msg, parse_mode= 'HTML')
-    logging.getLogger('TICKER').info(update)
 
 
 def error(update, context):
