@@ -22,7 +22,7 @@ class Storage:
 		return self.collection.find_one({'ticker': ticker})
 
 
-class TickerRating():
+class TickersRating():
 
 	def __init__(self, date):
 		self.selector = Storage(date)
@@ -281,7 +281,7 @@ class TickerRating():
 	def _any_(self):
 		return self.selector.select({})
 
-	def getIndicators():
+	def _indicators():
 		return {
 			# company is relient
 			'getStableGrowing': {'in':'Стабильный рост цены (в течение 1 года и 5 лет)', 'out':'Нет стабильного роста цены (в течение 1 года и 5 лет)'},
@@ -326,7 +326,7 @@ class TickerRating():
 				indicators[stock['ticker']]['cost'] = stock['currentCost'] if 'currentCost' in stock else None
 				indicators[stock['ticker']]['indicators'] = []
 				indicators[stock['ticker']]['rating'] = 0
-		treats = TickerRating.getIndicators().keys()
+		treats = TickersRating._indicators().keys()
 		rateInc = len(treats)
 		for treat in treats:
 			for stock in getattr(self, treat)():
@@ -335,20 +335,28 @@ class TickerRating():
 			rateInc -= 1 # the lower the treat the lesser its rate
 		return indicators
 
-	def _getLatestRating(closestDate):
+
+class LatestTickersRating:
+
+	_cached = None
+
+	def getLatestRating(self, closestDate):
+		if self._cached is not None:
+			return self._cached
 		while True:
 			try:
-				return TickerRating(closestDate).getTickersRating()
+				 self._cached = TickersRating(closestDate).getTickersRating()
+				 return  self._cached
 			except Exception as e:
 				closestDate -= datetime.timedelta(days=1)
 				continue
 
-	def getTickerReport(ticker:str):
+	def getLatestTickerReport(self, ticker:str):
 		ticker = ticker.upper()
-		tickers = TickerRating._getLatestRating(datetime.datetime.now())
+		tickers = self.getLatestRating(datetime.datetime.now())
 		if not ticker in tickers:
 			return None
-		indicators = TickerRating.getIndicators()
+		indicators = TickersRating._indicators()
 		report = {
 			'ticker': ticker,
 			'place': sum(1 for item in tickers if tickers[item]['rating']>tickers[ticker]['rating']) + 1,
@@ -363,32 +371,35 @@ class TickerRating():
 			report['minuses'].append(indicators[indicator]['out'])
 		return report
 
-	def printTickerReport(ticker:str):
-		report = TickerRating.getTickerReport(ticker)
+	def printLatestTickerReport(self, ticker:str):
+		report = self.getLatestTickerReport(ticker)
 		print(f"${ticker}({report['name']}): {report['place']} место среди {report['total']} тикеров\n")
 		for plus in report['pluses']: print(f" + {plus}")
 		for minus in report['minuses']: print(f" - {minus}")
 
-	def printTickersRating(now):
-		for item in sorted(TickerRating._getLatestRating(now).items(), key=lambda x: x[1]['rating']):
+	def printLatestTickersRating(self, now):
+		for item in sorted(self._getLatestRating(now).items(), key=lambda x: x[1]['rating']):
 			print("%20s (%-10s): %s" % (
 				"%s[%2s,%3s]" % (item[0], len(item[1]['indicators']), item[1]['rating']),
 				str(item[1]['name'])[:10],
 				' + '.join(item[1]['indicators'])
 			))
 
-	def printIndicatorCorrelation(start, end, deepness):
+
+class Correlation:
+
+	def printOverallIndicatorCorrelation(start, end, deepness):
 		bestTickersHistoryStats = {}
 		current = start
 		prevRatings = []
 		indicatorMultipleRating = {}
 		for number in range(1,deepness+1):
-			for indicatorGroup in itertools.combinations(TickerRating.getIndicators().keys(), number):
+			for indicatorGroup in itertools.combinations(TickersRating._indicators().keys(), number):
 				indicatorMultipleRating['+'.join(indicatorGroup)] = {'rating': 0, 'hits':set(), 'group': indicatorGroup}
 		while current<=end:
 			try:
 				print(current)
-				rating = TickerRating(current)
+				rating = TickersRating(current)
 			except:
 				current += datetime.timedelta(days=1)
 				continue
@@ -483,12 +494,12 @@ class UserInterface:
 		date_from = datetime.datetime(2021,6,27)
 		#date_till= datetime.datetime(2021,7,28)
 		date_till = datetime.datetime.now()
-		TickerRating.printTickersRating(date_till)
+		LatestTickersRating().printLatestTickersRating(date_till)
 		if not without_correlation:
-			TickerRating.printIndicatorCorrelation(date_from, date_till, deepness=4)
+			Correlation.printOverallIndicatorCorrelation(date_from, date_till, deepness=4)
 
 	def ticker(self, tickerName):
-		TickerRating.printTickerReport(tickerName)
+		LatestTickersRating().printLatestTickerReport(tickerName)
 
 if __name__ == '__main__':
 	UserInterface().go()

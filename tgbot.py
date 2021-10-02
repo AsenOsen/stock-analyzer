@@ -5,8 +5,11 @@ import analyzer
 import sys
 import os
 
+
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
+# loaded once on first run!
+latestData = analyzer.LatestTickersRating()
 
 
 def _render_template(template:str, **args):
@@ -28,7 +31,7 @@ def help(update, context):
 def ticker(update, context):
     logging.getLogger('TICKER').info(update)
     ticker = update.message.text
-    report = analyzer.TickerRating.getTickerReport(ticker)
+    report = latestData.getLatestTickerReport(ticker)
     if report:
         msg = _render_template('ticker', ticker=report['ticker'], name=report['name'], place=report['place'], total=report['total'], pluses=report['pluses'], minuses=report['minuses'])
         logging.getLogger('TICKER_RESULT').info('SUCCESS')
