@@ -378,7 +378,7 @@ class LatestTickersRating:
 		for minus in report['minuses']: print(f" - {minus}")
 
 	def printLatestTickersRating(self, now):
-		for item in sorted(self._getLatestRating(now).items(), key=lambda x: x[1]['rating']):
+		for item in sorted(self.getLatestRating(now).items(), key=lambda x: x[1]['rating']):
 			print("%20s (%-10s): %s" % (
 				"%s[%2s,%3s]" % (item[0], len(item[1]['indicators']), item[1]['rating']),
 				str(item[1]['name'])[:10],
