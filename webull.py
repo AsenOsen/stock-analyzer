@@ -434,6 +434,7 @@ class TickerInfo:
 			raise Exception('fillAnalytics: missing rating')
 		targetCost = float(data['targetPrice']['mean'])
 		buyCount = data['rating']['ratingSpread']['buy'] + data['rating']['ratingSpread']['strongBuy']
+		sellCount = data['rating']['ratingSpread']['sell']
 		targetCostToCurrentRatio = 0
 		if 'currentCost' in info:
 			currentCost = 0.01 if info['currentCost']==0 else info['currentCost']
@@ -444,6 +445,7 @@ class TickerInfo:
 			'targetCost': targetCost,
 			'targetCostToCurrentRatio': targetCostToCurrentRatio,
 			'buyCount': buyCount,
+			'sellCount': sellCount,
 			'buyCountRatio': buyCountRatio,
 			'consensus': data['rating']['ratingAnalysis']
 		} 
