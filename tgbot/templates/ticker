@@ -1,4 +1,5 @@
 <b><u>${{ ticker }}({{ name }})</u>: {{ place }} место среди {{ total }} тикеров</b>
+(Голосуйте за самый важный признак - https://docs.google.com/forms/d/1Uv6WCakrSPrR5YnKRFUFv84NatPYkIsPtg1zPsqhJcA)
 
 <b>+++ Положительные признаки:</b>
 {%- for plus in pluses %}
