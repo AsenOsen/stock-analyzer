@@ -1,12 +1,17 @@
 <b><u>${{ ticker }}({{ name }})</u>: {{ place }} место среди {{ total }} тикеров</b>
 (Голосуйте за самый важный признак - https://docs.google.com/forms/d/1Uv6WCakrSPrR5YnKRFUFv84NatPYkIsPtg1zPsqhJcA)
 
-<b>+++ Положительные признаки:</b>
+<b>+++ Положительные признаки ({{ pluses|length }}):</b>
 {%- for plus in pluses %}
 	🟢 {{ plus }}
 {%- endfor %}
 
-<b>--- Отрицательные признаки:</b>
+<b>=== Нейтральные признаки ({{ neutrals|length }}):</b>
+{%- for neutral in neutrals %}
+	🟡 {{ neutral }}
+{%- endfor %}
+
+<b>--- Отрицательные признаки ({{ minuses|length }}):</b>
 {%- for minus in minuses %}
 	🔴 {{ minus }}
 {%- endfor %}

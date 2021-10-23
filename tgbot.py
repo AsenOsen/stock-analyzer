@@ -27,13 +27,17 @@ def help(update, context):
     logging.getLogger('HELP').info(update)
     update.message.reply_text( _render_template('help'), parse_mode= 'HTML')
 
+def render_ticker_report(ticker):
+    report = latestData.getLatestTickerReport(ticker)
+    if not report:
+        return None
+    return _render_template('ticker', ticker=report['ticker'], name=report['name'], place=report['place'], total=report['total'], pluses=report['pluses'], neutrals=report['neutrals'], minuses=report['minuses'])
 
 def ticker(update, context):
     logging.getLogger('TICKER').info(update)
-    ticker = update.message.text
-    report = latestData.getLatestTickerReport(ticker)
+    report = render_ticker_report(update.message.text)
     if report:
-        msg = _render_template('ticker', ticker=report['ticker'], name=report['name'], place=report['place'], total=report['total'], pluses=report['pluses'], minuses=report['minuses'])
+        msg = report
         logging.getLogger('TICKER_RESULT').info('SUCCESS')
     else:
         msg = _render_template('ticker_404') 
@@ -58,3 +62,4 @@ def startBot(token:str):
 
 if __name__ == '__main__':
     startBot(sys.argv[1])
+    #print(render_ticker_report('AMZN'))

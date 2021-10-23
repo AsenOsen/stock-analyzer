@@ -294,27 +294,27 @@ class TickersRating():
 			'getCostBelowFareCost': {'in':'Цена ниже справедливой (той, что должна быть согласно тренду)', 'out':'Цена выше справедливой (той, что должна быть согласно тренду)'},
 			'getDevelopingUnderestimated': {'in':'Недооценена (прибыль растет быстрее цены)', 'out':'Переоценена (цена растет быстрее прибыли)'},
 			# smart heads interested in company
-			'getInsiderBuying': {'in':'Закупаются инсайдеры', 'out':'Инсайдеры не закупались за последнее время'},
-			'getTopInvestorsBuying': {'in':'Закупаются лучшие инвесторы', 'out':'Лучшие инвесторы не закупались за последнее время'},
-			'getBigFishesBuying': {'in':'Закупаются крупные игроки', 'out':'Крупные игроки не закупались за последнее время'},
+			'getInsiderBuying': {'in':'Закупаются инсайдеры', 'out':'Инсайдеры не закупались за последнее время', 'neutral':True},
+			'getTopInvestorsBuying': {'in':'Закупаются лучшие инвесторы', 'out':'Лучшие инвесторы не закупались за последнее время', 'neutral':True},
+			'getBigFishesBuying': {'in':'Закупаются крупные игроки', 'out':'Крупные игроки не закупались за последнее время', 'neutral':True},
 			'getAnalyticsRecommendBuy': {'in':'Уверенные рекомендации к покупке от большинства аналитиков', 'out':'Нет уверенных рекомендации к покупке от большинства аналитиков'},
 			# company continues growing
 			'getOccupationGrowthBegan': {'in':'Замечен скачек захвата доли рынка за последний год', 'out':'За последний год не было скачка захвата доли рынка'},
 			'getAggressor': {'in':'Агрессор (активно наращивает прибыль и забирает долю рынка)', 'out':'Заторможенность (не активно наращивает прибыль и долю рынка)'},
 			# positve behaviour
-			'getOptionsPositive': {'in':'На 100% бычий настрой по опционам', 'out':'Нет на 100% бычьего настроя по опционам'},
-			'getGoodNewsBackground': {'in':'Позитивный новостной фон', 'out':'Нет позитивного новостного фона'},
+			'getOptionsPositive': {'in':'На 100% бычий настрой по опционам', 'out':'Нет на 100% бычьего настроя по опционам', 'neutral':True},
+			'getGoodNewsBackground': {'in':'Позитивный новостной фон', 'out':'Нет позитивного новостного фона', 'neutral':True},
 			# independent analitycs postitive
 			'getGoodScoreWallst': {'in':'Высокая оценка независимым аналитическим сервисом simplywall.st', 'out':'Невысокая оценка независимым аналитическим сервисом simplywall.st'},
 			'getGoodScoreBeststocks': {'in':'Высокая оценка независимым аналитическим сервисом beststocks.ru', 'out':'Невысокая оценка независимым аналитическим сервисом beststocks.ru'},
 			#
-			'getResistance5dayBreakout': {'in':'Прорыв линии сопротивления за последние 5 дней', 'out':'Не было прорыва линии сопротивления за последние 5 дней'},
+			'getResistance5dayBreakout': {'in':'Прорыв линии сопротивления за последние 5 дней', 'out':'Не было прорыва линии сопротивления за последние 5 дней', 'neutral':True},
 			'getMoneyFlowIn': {'in':'Акции чаще покупают, чем продают', 'out':'Акции чаще продают, чем покупают'},
 			'getTechnicallyGood': {'in':'Технически сильная (хорошие показатели PE/EPS)', 'out':'Технически слабая (плохие показатели PE/EPS)'},
-			'getTightShorts': {'in':'Тугие шорты', 'out':'Нет большого объема шорт-позиций'},
-			'getDividendsPaying': {'in':'Платит дивиденды', 'out':'Не платит дивиденды'},
-			'getHyped': {'in':'Хайповая', 'out':'Не хайповая'},
-			'getSocialAttitudeGood': {'in':'Бычий социальный настрой', 'out':'Нет бычьего социального настроя'}
+			'getTightShorts': {'in':'Большой объем открытых шорт-позиций', 'out':'Нет большого объема открытых шорт-позиций', 'neutral':True},
+			'getDividendsPaying': {'in':'Платит дивиденды', 'out':'Не платит дивиденды', 'neutral':True},
+			'getHyped': {'in':'Хайповая', 'out':'Не хайповая', 'neutral':True},
+			'getSocialAttitudeGood': {'in':'Бычий социальный настрой', 'out':'Нет бычьего социального настроя', 'neutral':True}
 		}
 
 	def getTickersRating(self):
@@ -363,12 +363,16 @@ class LatestTickersRating:
 			'total': len(tickers.keys()),
 			'name': tickers[ticker]['name'],
 			'pluses': [],
+			'neutrals': [],
 			'minuses': []
 			}
 		for indicator in tickers[ticker]['indicators']:
 			report['pluses'].append(indicators[indicator]['in'])
 		for indicator in set(indicators.keys())-set(tickers[ticker]['indicators']):
-			report['minuses'].append(indicators[indicator]['out'])
+			if 'neutral' in indicators[indicator]:
+				report['neutrals'].append(indicators[indicator]['out'])
+			else:
+				report['minuses'].append(indicators[indicator]['out'])
 		return report
 
 	def printLatestTickerReport(self, ticker:str):
