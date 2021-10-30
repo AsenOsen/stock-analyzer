@@ -111,12 +111,12 @@ class StonksApi(JsonApi):
 
 	def getWSBTop(self):
 		if StonksApi.wsb == None:
-			StonksApi.wsb = self._getJson('stonks.news', f'/_next/data/{self._getBuildId()}/summary.json')
+			StonksApi.wsb = self._getJson('stonks.news', f'/_next/data/{self._getBuildId()}/top-100/wall-street-bets.json')
 		return StonksApi.wsb
 
 	def	getRobinhoodTop(self):
 		if StonksApi.robinhood == None:
-			StonksApi.robinhood = self._getJson('stonks.news', f'/_next/data/{self._getBuildId()}/robinhood-top-100.json')
+			StonksApi.robinhood = self._getJson('stonks.news', f'/_next/data/{self._getBuildId()}/top-100/robinhood.json')
 		return StonksApi.robinhood
 
 
