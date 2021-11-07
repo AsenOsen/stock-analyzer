@@ -5,3 +5,5 @@ include/
 pyvenv.cfg
 latest_report
 __pycache__/
+*.joblib
+*.csv

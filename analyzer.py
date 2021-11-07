@@ -1,8 +1,9 @@
 import pymongo
 import datetime
 import math
-import itertools
 import argparse
+import csv
+import ai
 
 class Storage:
 	def __init__(self, date):
@@ -346,6 +347,7 @@ class LatestTickersRating:
 		while True:
 			try:
 				 self._cached = TickersRating(closestDate).getTickersRating()
+				 print(f"Latest data = {closestDate}")
 				 return  self._cached
 			except Exception as e:
 				closestDate -= datetime.timedelta(days=1)
@@ -382,24 +384,27 @@ class LatestTickersRating:
 		for minus in report['minuses']: print(f" - {minus}")
 
 	def printLatestTickersRating(self, now):
+		features = list(TickersRating._indicators().keys())
+		latestFile = csv.writer(open('latest.csv', 'w'))
+		latestFile.writerow(features+['ticker', 'name'])
 		for item in sorted(self.getLatestRating(now).items(), key=lambda x: x[1]['rating']):
 			print("%20s (%-10s): %s" % (
 				"%s[%2s,%3s]" % (item[0], len(item[1]['indicators']), item[1]['rating']),
 				str(item[1]['name'])[:10],
 				' + '.join(item[1]['indicators'])
 			))
+			latestFile.writerow([int(feature in item[1]['indicators']) for feature in features] + [item[0], item[1]['name']])
 
 
-class Correlation:
+class HistoryAnalysis:
 
-	def printOverallIndicatorCorrelation(start, end, deepness):
+	def analyzeHistory(start, end):
 		bestTickersHistoryStats = {}
 		current = start
 		prevRatings = []
-		indicatorMultipleRating = {}
-		for number in range(1,deepness+1):
-			for indicatorGroup in itertools.combinations(TickersRating._indicators().keys(), number):
-				indicatorMultipleRating['+'.join(indicatorGroup)] = {'rating': 0, 'hits':set(), 'group': indicatorGroup}
+		features = list(TickersRating._indicators().keys())
+		historyFile = csv.writer(open('history.csv', 'w'))
+		historyFile.writerow(features + ['growth_percent'])
 		while current<=end:
 			try:
 				print(current)
@@ -408,11 +413,9 @@ class Correlation:
 				current += datetime.timedelta(days=1)
 				continue
 			curRating = rating.getTickersRating()
-
 			# go through all previous days
 			for prevRating in prevRatings:
-				indicatorForDay = {complexName:{'was':0, 'become':0, 'hits':set()} for complexName in indicatorMultipleRating}
-				'''  HISTORY GROWTH STATS '''
+				# top N growth stats
 				for item in sorted(prevRating.items(), key=lambda x: x[1]['rating'])[-5:]:
 					ticker = item[0]
 					if ticker not in bestTickersHistoryStats:
@@ -421,60 +424,26 @@ class Correlation:
 					if ticker in curRating and curRating[ticker]['cost'] is not None and bestTickersHistoryStats[ticker]['first_price'] is not None:
 						ratio = curRating[ticker]['cost']/float(bestTickersHistoryStats[ticker]['first_price'])
 						bestTickersHistoryStats[ticker]['best_ratio'] = bestTickersHistoryStats[ticker]['best_ratio'] if ratio < bestTickersHistoryStats[ticker]['best_ratio'] else ratio
-				''' COMPLEX RATING ''' 
-				# go through all ticker in specific previous day
+				# collect ticker growth data since PREV to CURRENT
 				for ticker in prevRating:
-					if ticker in curRating and curRating[ticker]['cost'] is not None and prevRating[ticker]['cost'] is not None:
-						# go through all ticker`s indicators in that previous day
-						for number in range(1,deepness+1): 
-							for indicatorGroup in itertools.combinations(prevRating[ticker]['indicators'], number):
-								complexName = '+'.join(indicatorGroup)
-								indicatorForDay[complexName]['was'] += prevRating[ticker]['cost']
-								indicatorForDay[complexName]['become'] += curRating[ticker]['cost']
-								indicatorMultipleRating[complexName]['hits'].add(ticker)
-				# calculate each indicator performance for specific day
-				for complexName in indicatorForDay:
-					if indicatorForDay[complexName]['was'] != 0:
-						# ..as relative change
-						indicatorMultipleRating[complexName]['rating'] += (indicatorForDay[complexName]['become']-indicatorForDay[complexName]['was']) / indicatorForDay[complexName]['was']
+					if ticker in curRating and curRating[ticker]['cost'] and prevRating[ticker]['cost']:
+						growthPerc = 100 * ((curRating[ticker]['cost'] - prevRating[ticker]['cost']) / float(prevRating[ticker]['cost']))
+						historyFile.writerow([int(feature in prevRating[ticker]['indicators']) for feature in features] + [growthPerc])
 			prevRatings.append(curRating)
 			current += datetime.timedelta(days=1)
-		''' show history stats '''
-		print("="*100 + " (best by rating history growth score)")
+		# display "top N growth stats"
+		print("="*100 + " (top N best detected growth score)")
 		plus = 0
 		for item in sorted(bestTickersHistoryStats.items(), key=lambda x: x[1]['best_ratio']):
 			print(f"{item[0]} - {item[1]['best_ratio']}")
 			plus += 1 if item[1]['best_ratio']>1 else 0
 		print(f"--- {plus/len(bestTickersHistoryStats.items())}% growth")
-		''' show complex rating '''
-		print("="*100 + "(complex ratings score)")
-		tickerComplexRatingBestWorstDiff = {}
-		indicators = {k:v for k,v in sorted(indicatorMultipleRating.items(), key=lambda item: item[1]['rating'], reverse=True)}
-		for indicator in indicators:
-			# determine current tickers having this indicator
-			currentTickersUnderIndicator = []
-			for ticker in prevRatings[-1]:
-				if set(indicatorMultipleRating[indicator]['group']).issubset(set(prevRatings[-1][ticker]['indicators'])):
-					currentTickersUnderIndicator.append(ticker)
-					# calculate best/worst rating prevalence
-					if ticker not in tickerComplexRatingBestWorstDiff:
-						tickerComplexRatingBestWorstDiff[ticker] = {'total':0}
-					if 'best' not in tickerComplexRatingBestWorstDiff[ticker] or indicatorMultipleRating[indicator]['rating']>tickerComplexRatingBestWorstDiff[ticker]['best']:
-						tickerComplexRatingBestWorstDiff[ticker]['best'] = indicatorMultipleRating[indicator]['rating']
-					if 'worst' not in tickerComplexRatingBestWorstDiff[ticker] or indicatorMultipleRating[indicator]['rating']<tickerComplexRatingBestWorstDiff[ticker]['worst']:
-						tickerComplexRatingBestWorstDiff[ticker]['worst'] = indicatorMultipleRating[indicator]['rating']
-					tickerComplexRatingBestWorstDiff[ticker]['total'] += indicatorMultipleRating[indicator]['rating'] 
-			# output
-			print(f"= {indicator} = {round(indicatorMultipleRating[indicator]['rating'], 3)} | tickers(hits={len(indicatorMultipleRating[indicator]['hits'])}, now={len(currentTickersUnderIndicator)}) = {', '.join(currentTickersUnderIndicator[:20])}")
-		print("="*100 + " (best+worst score)")
-		# sort by diff
-		for item in sorted(tickerComplexRatingBestWorstDiff.items(), key=lambda item: item[1]['best']+item[1]['worst'], reverse=True):
-			print(f"{item[0]} : best+worst={item[1]['best']+item[1]['worst']}, total={item[1]['total']}")
-		print("="*100 + " (overall combinations sum score)")
-		# sort by total
-		for item in sorted(tickerComplexRatingBestWorstDiff.items(), key=lambda item: item[1]['total'], reverse=True):
-			print(f"{item[0]} : totalSum={item[1]['total']}, diff={item[1]['best']+item[1]['worst']}")
-		print("="*100)
+
+	def analyzeFutureByHistory():
+		print("="*100 + " (AI)")
+		print(f"Started AI: {datetime.datetime.now()}")
+		ai.AI(historyFile='history.csv', latestFile='latest.csv').printLatestPredictionsByHistory()
+		print(f"Finished AI: {datetime.datetime.now()}")
 
 
 class UserInterface:
@@ -483,24 +452,25 @@ class UserInterface:
 		parser = argparse.ArgumentParser(description='Collected stocks data analyzer')
 		subparsers = parser.add_subparsers(dest="command", help='Commands')
 		fullreport = subparsers.add_parser('fullreport', help='Print full report for all tickers')
-		fullreport.add_argument('--no-corr', dest='nocorr', action='store_true', default=False, help='Without correlation calculation')
+		fullreport.add_argument('--no-history', dest='nohistory', action='store_true', default=False, help='Without history analysis')
 		ticker = subparsers.add_parser('ticker', help='Report for single ticker')
 		ticker.add_argument('ticker', help='Ticker')
 		self.args = parser.parse_args()
 
 	def go(self):
 		if self.args.command == 'fullreport':
-			self.fullreport(self.args.nocorr)
+			self.fullreport(self.args.nohistory)
 		elif self.args.command == 'ticker':
 			self.ticker(self.args.ticker)
 
-	def fullreport(self, without_correlation):
+	def fullreport(self, without_history):
 		date_from = datetime.datetime(2021,6,27)
-		#date_till= datetime.datetime(2021,7,28)
+		#date_till= datetime.datetime(2021,11,3)
 		date_till = datetime.datetime.now()
 		LatestTickersRating().printLatestTickersRating(date_till)
-		if not without_correlation:
-			Correlation.printOverallIndicatorCorrelation(date_from, date_till, deepness=4)
+		if not without_history:
+			HistoryAnalysis.analyzeHistory(date_from, date_till)
+			HistoryAnalysis.analyzeFutureByHistory()
 
 	def ticker(self, tickerName):
 		LatestTickersRating().printLatestTickerReport(tickerName)

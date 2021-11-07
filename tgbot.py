@@ -17,11 +17,9 @@ def _render_template(template:str, **args):
     template = Environment(loader=FileSystemLoader(f'{home}/tgbot/templates')).get_template(template)
     return template.render(args)
 
-
 def start(update, context):
     logging.getLogger('START').info(update)
     update.message.reply_text(_render_template('start'), parse_mode= 'HTML')
-
 
 def help(update, context):
     logging.getLogger('HELP').info(update)
@@ -44,10 +42,8 @@ def ticker(update, context):
         logging.getLogger('TICKER_RESULT').info('FAIL')
     update.message.reply_text(msg, parse_mode= 'HTML')
 
-
 def error(update, context):
     logging.getLogger('ERROR').warning('Update "%s" caused error "%s"', update, context.error)
-
 
 def startBot(token:str):
     updater = Updater(token, use_context=True)
@@ -58,7 +54,6 @@ def startBot(token:str):
     dp.add_error_handler(error)
     updater.start_polling()
     updater.idle()
-
 
 if __name__ == '__main__':
     startBot(sys.argv[1])

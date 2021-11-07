@@ -5,5 +5,5 @@ python3 webull.py crawl "$1"
 ./deploytgbot.sh "$2"
 # create actualreport
 echo $(date) report started
-python3 analyzer.py fullreport > latest_report
+python3 -u analyzer.py fullreport > latest_report
 echo $(date) report created
