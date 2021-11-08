@@ -144,7 +144,7 @@ class WallstApi(JsonApi):
 	def getScore(self, tickerName):
 		identity = self.getIdentityByTicker(tickerName)
 		if self.score == None: 
-			self.score = self._getJson('api.simplywall.st', f'/api/company/{identity}?include=score%2Cscore.snowflake')
+			self.score = self._getJson('api.simplywall.st', f'/api/company/{identity}?include=info%2Cscore%2Cscore.snowflake%2Canalysis.extended.raw_data%2Canalysis.extended.raw_data.insider_transactions&version=2.0')
 		return self.score
 
 
@@ -730,17 +730,21 @@ class TickerInfo:
 					}
 
 	def fillWallstAnalytics(self, info):
-		score = self.wallst_api.getScore(self.tickerName)
-		try:
-			score = score['data']['score']['data']
-		except:
-			raise Exception('fillWallstAnalytics: no data')
+		data = self.wallst_api.getScore(self.tickerName)
+		score = data.get('data', {}).get('score', {}).get('data', None)
+		if score is None:
+			raise Exception('fillWallstAnalytics: no score data')
 		info['wallstAnalytics'] = {
 			'unfairValueRatio': int(score['value']) / 6.0,
 			'futurePerformanceRatio': int(score['future']) / 6.0,
 			'pastPerformanceRatio': int(score['past']) / 6.0,
 			'financialHealthRatio': int(score['health']) / 6.0,
 			'totalScoreRatio': (int(score['total']) - int(score['income'])) / 24.0,
+			'unfair_discountPercents': data.get('data', {}).get('analysis', {}).get('data', {}).get('intrinsic_discount'), # percents
+			'future_annualGrowthForecast': data.get('data', {}).get('analysis', {}).get('data', {}).get('extended', {})
+				.get('data', {}).get('analysis', {}).get('future', {}).get('net_income_growth_annual'), # ratio
+			'past_annualPerformance': data.get('data', {}).get('analysis', {}).get('data', {}).get('extended', {})
+				.get('data', {}).get('analysis', {}).get('past', {}).get('net_income_growth_5y') # ratio
 		}
 
 	def fillBeststocksAnalytics(self, info):
