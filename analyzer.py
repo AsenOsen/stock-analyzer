@@ -377,12 +377,6 @@ class LatestTickersRating:
 				report['minuses'].append(indicators[indicator]['out'])
 		return report
 
-	def printLatestTickerReport(self, ticker:str):
-		report = self.getLatestTickerReport(ticker)
-		print(f"${ticker}({report['name']}): {report['place']} место среди {report['total']} тикеров\n")
-		for plus in report['pluses']: print(f" + {plus}")
-		for minus in report['minuses']: print(f" - {minus}")
-
 	def printLatestTickersRating(self, now):
 		features = list(TickersRating._indicators().keys())
 		latestFile = csv.writer(open('latest.csv', 'w'))
@@ -453,8 +447,6 @@ class UserInterface:
 		subparsers = parser.add_subparsers(dest="command", help='Commands')
 		fullreport = subparsers.add_parser('fullreport', help='Print full report for all tickers')
 		fullreport.add_argument('--no-history', dest='nohistory', action='store_true', default=False, help='Without history analysis')
-		ticker = subparsers.add_parser('ticker', help='Report for single ticker')
-		ticker.add_argument('ticker', help='Ticker')
 		self.args = parser.parse_args()
 
 	def go(self):
@@ -471,9 +463,6 @@ class UserInterface:
 		if not without_history:
 			HistoryAnalysis.analyzeHistory(date_from, date_till)
 			HistoryAnalysis.analyzeFutureByHistory()
-
-	def ticker(self, tickerName):
-		LatestTickersRating().printLatestTickerReport(tickerName)
 
 if __name__ == '__main__':
 	UserInterface().go()
