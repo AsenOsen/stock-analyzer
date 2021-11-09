@@ -22,11 +22,18 @@ class AI:
 	def printPredictionsBySavedModel(self):
 		self._printer(self._loadModel())
 
+	def getTickerPredictionsBySavedModel(self) -> dict:
+		predictions = self._getPredictions(self._loadModel(), self.latestFile).to_dict('records')
+		data = {}
+		for prediction in predictions:
+			data[prediction['ticker']] = prediction['future_growth_prob']
+		return data
+
 	def _printer(self, model):
 		print("-"*100, ' (feature importance)')
 		self._printFeaturesImportance(model)
 		print("-"*100, ' (predictions)')
-		self._printPredictions(model, self.latestFile)
+		print(self._getPredictions(model, self.latestFile).to_string())
 
 	def _loadHistory(self):
 		if self.historyData is None:
@@ -38,8 +45,7 @@ class AI:
 
 	def _trainModel(self):
 		features = self._loadHistory().sample(n=self.sampleSize) if self.sampleSize else self._loadHistory()
-		#features = features.replace({0:False, 1:True})
-		features['has_growth'] = features.growth_percent > 0
+		features['has_growth'] = [1 if growth>0 else 0 for growth in features['growth_percent']]
 		labels = np.array(features['has_growth'])
 		features = features.drop('has_growth', axis = 1).drop('growth_percent', axis = 1)
 		features = np.array(features)
@@ -52,16 +58,21 @@ class AI:
 		bar = 0.5
 		percentiles = [[0.05, 0.95], [0.1, 0.9], [0.15, 0.85], [0.2, 0.8], [bar, bar]]
 		for percentile in percentiles:
-			hits_true, total_true, hits_false, total_false = 0, 0, 0, 0
+			hits_growth, actual_growth, hits_fall, actual_fall = 0, 0, 0, 0
 			for i in range(0, len(predictions)):
+				# pass out of percentile values
 				if percentile[0]<=predictions[i]<=percentile[1]:
 					continue
-				hits_true += 1 if (predictions[i]>bar and test_labels[i]==True) else 0
-				total_true += 1 if test_labels[i]==True else 0
-				hits_false += 1 if (predictions[i]<bar and test_labels[i]==False) else 0
-				total_false += 1 if test_labels[i]==False else 0
-			print(f'Accuracy-{int(percentile[0]*100)} (true): {round(hits_true/total_true, 4)}')
-			print(f'Accuracy-{int(percentile[0]*100)} (false):{round(hits_false/total_false, 4)}')
+				# collect growth predictions
+				if test_labels[i]==1:
+					hits_growth += 1 if predictions[i]>bar else 0
+					actual_growth += 1
+				# collect fall predictions
+				if test_labels[i]==0:
+					hits_fall += 1 if predictions[i]<bar else 0
+					actual_fall += 1
+			print(f'Accuracy-{int(percentile[0]*100)} (true): {round(hits_growth/actual_growth, 4)}')
+			print(f'Accuracy-{int(percentile[0]*100)} (false):{round(hits_fall/actual_fall, 4)}')
 		return model
 
 	def _loadModel(self):
@@ -73,14 +84,15 @@ class AI:
 		feature_importances = sorted(feature_importances, key = lambda x: x[1], reverse = True)
 		[print('Variable: {:40} Importance: {}'.format(*pair)) for pair in feature_importances]
 
-	def _printPredictions(self, model, predictDataFile):
+	def _getPredictions(self, model, predictDataFile):
 		features = pandas.read_csv(predictDataFile)
-		features_without_meta = features.drop('name', axis=1).drop('ticker', axis = 1)
+		features_without_meta = features.drop('ticker', axis = 1).drop('name', axis = 1)
 		features_without_meta = np.array(features_without_meta)
 		features['future_growth_prob'] = model.predict(features_without_meta)
 		features.drop(features.columns.difference(['ticker', 'name', 'future_growth_prob']), axis=1, inplace=True)
 		features.sort_values(by=['future_growth_prob'], inplace=True)
 		features.reset_index(drop=True, inplace=True)
-		print(features.to_string())
+		return features
 
-#AI(historyFile='history.csv', latestFile='latest.csv').printLatestPredictionsByHistory()
+if __name__ == '__main__':
+	AI(historyFile='history.csv', latestFile='latest.csv').printLatestPredictionsByHistory()

@@ -1,20 +1,16 @@
 import logging
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from jinja2 import Environment, FileSystemLoader, Template
-import analyzer
 import sys
 import os
+import json
 
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-# loaded once on first run!
-latestData = analyzer.LatestTickersRating()
-
+HOME_DIR = os.path.dirname(os.path.abspath(__file__))
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+stocksData = json.load(open(f'{HOME_DIR}/data.json'))
 
 def _render_template(template:str, **args):
-    home = os.path.dirname(os.path.abspath(__file__))
-    template = Environment(loader=FileSystemLoader(f'{home}/tgbot/templates')).get_template(template)
+    template = Environment(loader=FileSystemLoader(f'{HOME_DIR}/templates')).get_template(template)
     return template.render(args)
 
 def start(update, context):
@@ -26,10 +22,12 @@ def help(update, context):
     update.message.reply_text( _render_template('help'), parse_mode= 'HTML')
 
 def render_ticker_report(ticker):
-    report = latestData.getLatestTickerReport(ticker)
+    ticker = ticker.upper()
+    report = stocksData.get(ticker)
     if not report:
         return None
-    return _render_template('ticker', ticker=report['ticker'], name=report['name'], place=report['place'], total=report['total'], pluses=report['pluses'], neutrals=report['neutrals'], minuses=report['minuses'])
+    return _render_template('ticker', ticker=ticker, name=report['name'], place=report['place'], total=report['total'], 
+        pluses=report['pluses'], neutrals=report['neutrals'], minuses=report['minuses'], growth_prediction=round(report['prediction']*100))
 
 def ticker(update, context):
     logging.getLogger('TICKER').info(update)
@@ -57,4 +55,4 @@ def startBot(token:str):
 
 if __name__ == '__main__':
     startBot(sys.argv[1])
-    #print(render_ticker_report('AMZN'))
+    #print(render_ticker_report('SNAP'))

@@ -3,7 +3,7 @@ lib64/
 bin/
 include/
 pyvenv.cfg
-latest_report
+report
 __pycache__/
 *.joblib
 *.csv

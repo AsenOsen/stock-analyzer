@@ -3,6 +3,7 @@ import datetime
 import math
 import argparse
 import csv
+import json
 import ai
 
 class Storage:
@@ -23,7 +24,7 @@ class Storage:
 		return self.collection.find_one({'ticker': ticker})
 
 
-class TickersRating():
+class Indicators():
 
 	def __init__(self, date):
 		self.selector = Storage(date)
@@ -282,7 +283,7 @@ class TickersRating():
 	def _any_(self):
 		return self.selector.select({})
 
-	def _indicators():
+	def _indicators_db():
 		return {
 			# company is relient
 			'getStableGrowing': {'in':'Стабильный рост цены (в течение 1 года и 5 лет)', 'out':'Нет стабильного роста цены (в течение 1 года и 5 лет)'},
@@ -318,7 +319,7 @@ class TickersRating():
 			'getSocialAttitudeGood': {'in':'Бычий социальный настрой', 'out':'Нет бычьего социального настроя', 'neutral':True}
 		}
 
-	def getTickersRating(self):
+	def getIndicators(self):
 		indicators = {}
 		for stock in self._any_():
 			if not stock['ticker'] in indicators: 
@@ -327,7 +328,7 @@ class TickersRating():
 				indicators[stock['ticker']]['cost'] = stock['currentCost'] if 'currentCost' in stock else None
 				indicators[stock['ticker']]['indicators'] = []
 				indicators[stock['ticker']]['rating'] = 0
-		treats = TickersRating._indicators().keys()
+		treats = Indicators._indicators_db().keys()
 		rateInc = len(treats)
 		for treat in treats:
 			for stock in getattr(self, treat)():
@@ -337,106 +338,111 @@ class TickersRating():
 		return indicators
 
 
-class LatestTickersRating:
+class LatestTickersData:
 
-	_cached = None
+	aiHistoryFile = 'history.csv'
+	aiLatestFile = 'latest.csv'
 
-	def getLatestRating(self, closestDate):
-		if self._cached is not None:
-			return self._cached
+	def _getLatestIndicators(self, closestDate):
 		while True:
 			try:
-				 self._cached = TickersRating(closestDate).getTickersRating()
-				 print(f"Latest data = {closestDate}")
-				 return  self._cached
+				indicators = Indicators(closestDate).getIndicators()
+				print(f"Latest data = {closestDate}")
+				return indicators
 			except Exception as e:
 				closestDate -= datetime.timedelta(days=1)
 				continue
 
-	def getLatestTickerReport(self, ticker:str):
-		ticker = ticker.upper()
-		tickers = self.getLatestRating(datetime.datetime.now())
-		if not ticker in tickers:
-			return None
-		indicators = TickersRating._indicators()
-		report = {
-			'ticker': ticker,
-			'place': sum(1 for item in tickers if tickers[item]['rating']>tickers[ticker]['rating']) + 1,
-			'total': len(tickers.keys()),
-			'name': tickers[ticker]['name'],
-			'pluses': [],
-			'neutrals': [],
-			'minuses': []
-			}
-		for indicator in tickers[ticker]['indicators']:
-			report['pluses'].append(indicators[indicator]['in'])
-		for indicator in set(indicators.keys())-set(tickers[ticker]['indicators']):
-			if 'neutral' in indicators[indicator]:
-				report['neutrals'].append(indicators[indicator]['out'])
-			else:
-				report['minuses'].append(indicators[indicator]['out'])
-		return report
+	def _getAI(self):
+		return ai.AI(historyFile=self.aiHistoryFile, latestFile=self.aiLatestFile)
 
-	def printLatestTickersRating(self, now):
-		features = list(TickersRating._indicators().keys())
-		latestFile = csv.writer(open('latest.csv', 'w'))
-		latestFile.writerow(features+['ticker', 'name'])
-		for item in sorted(self.getLatestRating(now).items(), key=lambda x: x[1]['rating']):
-			print("%20s (%-10s): %s" % (
-				"%s[%2s,%3s]" % (item[0], len(item[1]['indicators']), item[1]['rating']),
+	def getAutonomousDataAsJson(self):
+		tickers = self._getLatestIndicators(datetime.datetime.now())
+		predictions = self._getAI().getTickerPredictionsBySavedModel()
+		indicators = Indicators._indicators_db()
+		autonomousData = {}
+		for ticker in tickers:
+			autonomousData[ticker] = {
+				'place': sum(1 for item in tickers if tickers[item]['rating']>tickers[ticker]['rating']) + 1,
+				'total': len(tickers.keys()),
+				'name': tickers[ticker]['name'],
+				'pluses': [],
+				'neutrals': [],
+				'minuses': [],
+				'prediction': predictions[ticker]
+				}
+			for indicator in tickers[ticker]['indicators']:
+				autonomousData[ticker]['pluses'].append(indicators[indicator]['in'])
+			for indicator in set(indicators.keys())-set(tickers[ticker]['indicators']):
+				if 'neutral' in indicators[indicator]:
+					autonomousData[ticker]['neutrals'].append(indicators[indicator]['out'])
+				else:
+					autonomousData[ticker]['minuses'].append(indicators[indicator]['out'])
+		return json.dumps(autonomousData, ensure_ascii=False)
+
+	def printIndicatorsRating(self, now):
+		features = list(Indicators._indicators_db().keys())
+		latestRating = self._getLatestIndicators(now)
+		# create data for prediction
+		with open(self.aiLatestFile, 'w') as f:
+			aiLatestFile = csv.writer(f)
+			aiLatestFile.writerow(features+['ticker', 'name'])
+			for ticker in latestRating:
+				aiLatestFile.writerow([int(feature in latestRating[ticker]['indicators']) for feature in features] + [ticker, latestRating[ticker]['name']])
+		predictions = self._getAI().getTickerPredictionsBySavedModel()
+		# output
+		for item in sorted(latestRating.items(), key=lambda x: x[1]['rating']):
+			print("%25s (%-10s): %s" % (
+				"%s[%2s,%3s,%4s] " % (item[0], len(item[1]['indicators']), item[1]['rating'], round(predictions[item[0]], 2)),
 				str(item[1]['name'])[:10],
 				' + '.join(item[1]['indicators'])
 			))
-			latestFile.writerow([int(feature in item[1]['indicators']) for feature in features] + [item[0], item[1]['name']])
 
-
-class HistoryAnalysis:
-
-	def analyzeHistory(start, end):
+	def printAnalyzedHistory(self, start, end):
 		bestTickersHistoryStats = {}
 		current = start
 		prevRatings = []
-		features = list(TickersRating._indicators().keys())
-		historyFile = csv.writer(open('history.csv', 'w'))
-		historyFile.writerow(features + ['growth_percent'])
-		while current<=end:
-			try:
-				print(current)
-				rating = TickersRating(current)
-			except:
+		features = list(Indicators._indicators_db().keys())
+		with open(self.aiHistoryFile, 'w') as f:
+			aiHistoryFile = csv.writer(f)
+			aiHistoryFile.writerow(features + ['days_diff', 'growth_percent'])
+			while current<=end:
+				try:
+					rating = Indicators(current)
+					print(current)
+				except:
+					current += datetime.timedelta(days=1)
+					continue
+				curRating = rating.getIndicators()
+				# go through all previous days
+				for prevRating in prevRatings:
+					# top N growth stats
+					for item in sorted(prevRating['tickers'].items(), key=lambda x: x[1]['rating'])[-5:]:
+						ticker = item[0]
+						if ticker not in bestTickersHistoryStats:
+							bestTickersHistoryStats[ticker] = {'first_price': prevRating['tickers'][ticker]['cost'], 'best_ratio': 0}
+					for ticker in bestTickersHistoryStats:
+						if ticker in curRating and curRating[ticker]['cost'] is not None and bestTickersHistoryStats[ticker]['first_price'] is not None:
+							ratio = curRating[ticker]['cost']/float(bestTickersHistoryStats[ticker]['first_price'])
+							bestTickersHistoryStats[ticker]['best_ratio'] = bestTickersHistoryStats[ticker]['best_ratio'] if ratio < bestTickersHistoryStats[ticker]['best_ratio'] else ratio
+					# collect ticker growth data since PREV to CURRENT
+					for ticker in prevRating['tickers']:
+						if ticker in curRating and curRating[ticker]['cost'] and prevRating['tickers'][ticker]['cost']:
+							daysDiff = (current-prevRating['date']).days
+							growthPerc = round(100 * ((curRating[ticker]['cost'] - prevRating['tickers'][ticker]['cost']) / float(prevRating['tickers'][ticker]['cost'])), 2)
+							aiHistoryFile.writerow([int(feature in prevRating['tickers'][ticker]['indicators']) for feature in features] + [daysDiff, growthPerc])
+				prevRatings.append({'tickers':curRating, 'date':current})
 				current += datetime.timedelta(days=1)
-				continue
-			curRating = rating.getTickersRating()
-			# go through all previous days
-			for prevRating in prevRatings:
-				# top N growth stats
-				for item in sorted(prevRating.items(), key=lambda x: x[1]['rating'])[-5:]:
-					ticker = item[0]
-					if ticker not in bestTickersHistoryStats:
-						bestTickersHistoryStats[ticker] = {'first_price': prevRating[ticker]['cost'], 'best_ratio': 0}
-				for ticker in bestTickersHistoryStats:
-					if ticker in curRating and curRating[ticker]['cost'] is not None and bestTickersHistoryStats[ticker]['first_price'] is not None:
-						ratio = curRating[ticker]['cost']/float(bestTickersHistoryStats[ticker]['first_price'])
-						bestTickersHistoryStats[ticker]['best_ratio'] = bestTickersHistoryStats[ticker]['best_ratio'] if ratio < bestTickersHistoryStats[ticker]['best_ratio'] else ratio
-				# collect ticker growth data since PREV to CURRENT
-				for ticker in prevRating:
-					if ticker in curRating and curRating[ticker]['cost'] and prevRating[ticker]['cost']:
-						growthPerc = 100 * ((curRating[ticker]['cost'] - prevRating[ticker]['cost']) / float(prevRating[ticker]['cost']))
-						historyFile.writerow([int(feature in prevRating[ticker]['indicators']) for feature in features] + [growthPerc])
-			prevRatings.append(curRating)
-			current += datetime.timedelta(days=1)
 		# display "top N growth stats"
 		print("="*100 + " (top N best detected growth score)")
-		plus = 0
+		positiveGrowth = 0
 		for item in sorted(bestTickersHistoryStats.items(), key=lambda x: x[1]['best_ratio']):
 			print(f"{item[0]} - {item[1]['best_ratio']}")
-			plus += 1 if item[1]['best_ratio']>1 else 0
-		print(f"--- {plus/len(bestTickersHistoryStats.items())}% growth")
-
-	def analyzeFutureByHistory():
+			positiveGrowth += 1 if item[1]['best_ratio']>1 else 0
+		print(f"--- {positiveGrowth/len(bestTickersHistoryStats.items())}% growth")
 		print("="*100 + " (AI)")
 		print(f"Started AI: {datetime.datetime.now()}")
-		ai.AI(historyFile='history.csv', latestFile='latest.csv').printLatestPredictionsByHistory()
+		self._getAI().printLatestPredictionsByHistory()
 		print(f"Finished AI: {datetime.datetime.now()}")
 
 
@@ -445,24 +451,29 @@ class UserInterface:
 	def __init__(self):
 		parser = argparse.ArgumentParser(description='Collected stocks data analyzer')
 		subparsers = parser.add_subparsers(dest="command", help='Commands')
-		fullreport = subparsers.add_parser('fullreport', help='Print full report for all tickers')
-		fullreport.add_argument('--no-history', dest='nohistory', action='store_true', default=False, help='Without history analysis')
+		report = subparsers.add_parser('report', help='Print full report for all tickers')
+		report.add_argument('--no-history', dest='nohistory', action='store_true', default=False, help='Without history analysis')
+		latestdata = subparsers.add_parser('latestdata', help='Dumps latest data in JSON format to file')
+		latestdata.add_argument('--to-file', dest='filename', default=False, help='Without history analysis')
 		self.args = parser.parse_args()
 
 	def go(self):
-		if self.args.command == 'fullreport':
-			self.fullreport(self.args.nohistory)
-		elif self.args.command == 'ticker':
-			self.ticker(self.args.ticker)
+		if self.args.command == 'report':
+			self.report(self.args.nohistory)
+		elif self.args.command == 'latestdata':
+			self.latestdata(self.args.filename)
 
-	def fullreport(self, without_history):
+	def report(self, without_history):
 		date_from = datetime.datetime(2021,6,27)
 		#date_till= datetime.datetime(2021,11,3)
 		date_till = datetime.datetime.now()
-		LatestTickersRating().printLatestTickersRating(date_till)
+		latest = LatestTickersData()
+		latest.printIndicatorsRating(date_till)
 		if not without_history:
-			HistoryAnalysis.analyzeHistory(date_from, date_till)
-			HistoryAnalysis.analyzeFutureByHistory()
+			latest.printAnalyzedHistory(date_from, date_till)
+
+	def latestdata(self, filename):
+		open(filename, 'w').write(LatestTickersData().getAutonomousDataAsJson())
 
 if __name__ == '__main__':
 	UserInterface().go()
