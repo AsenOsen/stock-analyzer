@@ -338,78 +338,70 @@ class Indicators():
 		return indicators
 
 
-class LatestTickersData:
+class Report:
 
 	aiHistoryFile = 'history.csv'
-	aiLatestFile = 'latest.csv'
 
-	def _getLatestIndicators(self, closestDate):
+	def _findLatestIndicatorsDate(self, closestDate):
 		while True:
 			try:
-				indicators = Indicators(closestDate).getIndicators()
-				print(f"Latest data = {closestDate}")
-				return indicators
+				Indicators(closestDate)
+				return closestDate
 			except Exception as e:
 				closestDate -= datetime.timedelta(days=1)
 				continue
 
-	def _getAI(self):
-		return ai.AI(historyFile=self.aiHistoryFile, latestFile=self.aiLatestFile)
+	def _getPredictions(self, aiModel, indicators):
+		predictions = {}
+		for ticker in indicators:
+			predictions[ticker] = aiModel.getPrediction({indicator:(indicator in indicators[ticker]['indicators']) for indicator in Indicators._indicators_db()})
+		return predictions
 
 	def getAutonomousDataAsJson(self):
-		tickers = self._getLatestIndicators(datetime.datetime.now())
-		predictions = self._getAI().getTickerPredictionsBySavedModel()
+		latestIndicatorsData = Indicators(self._findLatestIndicatorsDate(datetime.datetime.now())).getIndicators()
+		aiModel = ai.AI.load(historyFile=self.aiHistoryFile)
+		predictions = self._getPredictions(aiModel, latestIndicatorsData)
 		indicators = Indicators._indicators_db()
 		autonomousData = {}
-		for ticker in tickers:
+		for ticker in latestIndicatorsData:
 			autonomousData[ticker] = {
-				'place': sum(1 for item in tickers if tickers[item]['rating']>tickers[ticker]['rating']) + 1,
-				'total': len(tickers.keys()),
-				'name': tickers[ticker]['name'],
+				'place': sum(1 for item in latestIndicatorsData if latestIndicatorsData[item]['rating']>latestIndicatorsData[ticker]['rating']) + 1,
+				'total': len(latestIndicatorsData.keys()),
+				'name': latestIndicatorsData[ticker]['name'],
 				'pluses': [],
 				'neutrals': [],
 				'minuses': [],
 				'prediction': predictions[ticker]
 				}
-			for indicator in tickers[ticker]['indicators']:
+			for indicator in latestIndicatorsData[ticker]['indicators']:
 				autonomousData[ticker]['pluses'].append(indicators[indicator]['in'])
-			for indicator in set(indicators.keys())-set(tickers[ticker]['indicators']):
+			for indicator in set(indicators.keys())-set(latestIndicatorsData[ticker]['indicators']):
 				if 'neutral' in indicators[indicator]:
 					autonomousData[ticker]['neutrals'].append(indicators[indicator]['out'])
 				else:
 					autonomousData[ticker]['minuses'].append(indicators[indicator]['out'])
 		return json.dumps(autonomousData, ensure_ascii=False)
 
-	def printIndicatorsRating(self, now):
-		features = list(Indicators._indicators_db().keys())
-		latestRating = self._getLatestIndicators(now)
-		# create data for prediction
-		with open(self.aiLatestFile, 'w') as f:
-			aiLatestFile = csv.writer(f)
-			aiLatestFile.writerow(features+['ticker', 'name'])
-			for ticker in latestRating:
-				aiLatestFile.writerow([int(feature in latestRating[ticker]['indicators']) for feature in features] + [ticker, latestRating[ticker]['name']])
-		predictions = self._getAI().getTickerPredictionsBySavedModel()
-		# output
-		for item in sorted(latestRating.items(), key=lambda x: x[1]['rating']):
-			print("%25s (%-10s): %s" % (
-				"%s[%2s,%3s,%4s] " % (item[0], len(item[1]['indicators']), item[1]['rating'], round(predictions[item[0]], 2)),
-				str(item[1]['name'])[:10],
-				' + '.join(item[1]['indicators'])
-			))
+	def printLatestIndicatorsReport(self, now):
+		for item in sorted(Indicators(self._findLatestIndicatorsDate(now)).getIndicators().items(), key=lambda x: x[1]['rating']):
+			ticker = item[0]
+			indicatorsCount = str(len(item[1]['indicators']))
+			rating = str(item[1]['rating'])
+			name = str(item[1]['name'])[:10]
+			indicators = ' + '.join(item[1]['indicators'])
+			print(f'{ticker:5}[{indicatorsCount:2},{rating:3}] ({name:10}): {indicators}')
 
-	def printAnalyzedHistory(self, start, end):
+	def printHistoricalReport(self, start, end):
 		bestTickersHistoryStats = {}
 		current = start
 		prevRatings = []
-		features = list(Indicators._indicators_db().keys())
+		indicators = list(Indicators._indicators_db().keys())
 		with open(self.aiHistoryFile, 'w') as f:
 			aiHistoryFile = csv.writer(f)
-			aiHistoryFile.writerow(features + ['days_diff', 'growth_percent'])
+			aiHistoryFile.writerow(indicators + ['days_diff', 'growth_percent'])
 			while current<=end:
 				try:
 					rating = Indicators(current)
-					print(current)
 				except:
 					current += datetime.timedelta(days=1)
 					continue
@@ -430,21 +422,50 @@ class LatestTickersData:
 						if ticker in curRating and curRating[ticker]['cost'] and prevRating['tickers'][ticker]['cost']:
 							daysDiff = (current-prevRating['date']).days
 							growthPerc = round(100 * ((curRating[ticker]['cost'] - prevRating['tickers'][ticker]['cost']) / float(prevRating['tickers'][ticker]['cost'])), 2)
-							aiHistoryFile.writerow([int(feature in prevRating['tickers'][ticker]['indicators']) for feature in features] + [daysDiff, growthPerc])
+							aiHistoryFile.writerow([int(indicator in prevRating['tickers'][ticker]['indicators']) for indicator in indicators] + [daysDiff, growthPerc])
 				prevRatings.append({'tickers':curRating, 'date':current})
 				current += datetime.timedelta(days=1)
-		# display "top N growth stats"
-		print("="*100 + " (top N best detected growth score)")
+		# 
+		print(f'[{datetime.datetime.now()}]{"-"*100} (history analyzed days)\n')
+		for day in prevRatings:
+			print(day['date'])
+		# 
+		print(f'[{datetime.datetime.now()}]{"-"*100} (AI training)')
+		aiModel = ai.AI.create(historyFile=self.aiHistoryFile)
+		aiModel.printModelInfo()
+		# 
+		print(f'\n[{datetime.datetime.now()}]{"-"*100} (tickers top by indicators)\n')
+		latestDate = prevRatings[-1]['date']
+		print(f'Latest data = {latestDate}')
+		latestIndicatorsData = Indicators(latestDate).getIndicators()
+		predictions = self._getPredictions(aiModel, latestIndicatorsData)
+		line = 0
+		for item in sorted(latestIndicatorsData.items(), key=lambda x: x[1]['rating']):
+			ticker = item[0]
+			indicatorsCount = str(len(item[1]['indicators']))
+			rating = str(item[1]['rating'])
+			aiPrediction = str(round(predictions[item[0]], 2))
+			name = str(item[1]['name'])[:10]
+			indicators = ' + '.join(item[1]['indicators'])
+			line += 1
+			lineStr = str(line) + '.'
+			print(f'{lineStr:5}. {ticker:5}[{indicatorsCount:2},{rating:3},{aiPrediction:4}] ({name:10}): {indicators}')
+		#
+		print(f'\n[{datetime.datetime.now()}]{"-"*100} (tickers top by predictions)\n')
+		line = 0
+		for item in sorted(predictions.items(), key=lambda x: x[1]):
+			line += 1
+			lineStr = str(line) + '.'
+			print(f'{lineStr:5}. {item[0]:5} ({str(latestIndicatorsData[item[0]]["name"]):40}) = {item[1]}')
+		# 
+		print(f'\n[{datetime.datetime.now()}]{"-"*100} (tickers top N best detected growth score)\n')
 		positiveGrowth = 0
 		for item in sorted(bestTickersHistoryStats.items(), key=lambda x: x[1]['best_ratio']):
 			print(f"{item[0]} - {item[1]['best_ratio']}")
 			positiveGrowth += 1 if item[1]['best_ratio']>1 else 0
 		print(f"--- {positiveGrowth/len(bestTickersHistoryStats.items())}% growth")
-		print("="*100 + " (AI)")
-		print(f"Started AI: {datetime.datetime.now()}")
-		self._getAI().printLatestPredictionsByHistory()
-		print(f"Finished AI: {datetime.datetime.now()}")
-
+		print(f'\n[{datetime.datetime.now()}]{"-"*100} (finish)\n')
+		
 
 class UserInterface:
 
@@ -467,13 +488,14 @@ class UserInterface:
 		date_from = datetime.datetime(2021,6,27)
 		#date_till= datetime.datetime(2021,11,3)
 		date_till = datetime.datetime.now()
-		latest = LatestTickersData()
-		latest.printIndicatorsRating(date_till)
-		if not without_history:
-			latest.printAnalyzedHistory(date_from, date_till)
+		report = Report()
+		if without_history:
+			report.printLatestIndicatorsReport(date_till)
+		else:
+			report.printHistoricalReport(date_from, date_till)
 
 	def latestdata(self, filename):
-		open(filename, 'w').write(LatestTickersData().getAutonomousDataAsJson())
+		open(filename, 'w').write(Report().getAutonomousDataAsJson())
 
 if __name__ == '__main__':
 	UserInterface().go()

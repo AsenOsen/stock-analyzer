@@ -3,41 +3,53 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 import joblib
+import json
 
+# model predicts [5%,] growth at [50, ] days 
 class AI:
 
 	historyFile = None
 	historyData = None
-	latestFile = None
-	sampleSize = None # count
-	modelFile = 'ai_model.joblib'
+	sampleSize = None
+	modelFile = None
+	modelInfo = {}
+	activeModel = None
 
-	def __init__(self, historyFile, latestFile):
-		self.historyFile = historyFile
-		self.latestFile = latestFile
+	def create(historyFile, historySampleSize = None, modelFile = 'ai_model.joblib'):
+		ai = AI()
+		ai.historyFile = historyFile
+		ai.sampleSize = historySampleSize
+		ai.modelFile = modelFile
+		ai.activeModel = ai._trainModel()
+		return ai
 
-	def printLatestPredictionsByHistory(self):
-		self._printer(self._trainModel())
+	def load(historyFile, modelFile = 'ai_model.joblib'):
+		ai = AI()
+		ai.historyFile = historyFile
+		ai.modelFile = modelFile
+		ai.activeModel = joblib.load(ai.modelFile)
+		return ai
 
-	def printPredictionsBySavedModel(self):
-		self._printer(self._loadModel())
+	def printModelInfo(self):
+		print(json.dumps(self.modelInfo, indent=4))
+		print(json.dumps(self._getFeaturesImportance(), indent=4))
 
-	def getTickerPredictionsBySavedModel(self) -> dict:
-		predictions = self._getPredictions(self._loadModel(), self.latestFile).to_dict('records')
-		data = {}
-		for prediction in predictions:
-			data[prediction['ticker']] = prediction['future_growth_prob']
-		return data
+	def getPrediction(self, features:dict):
+		data = []
+		for feature in self._getFeatures():
+			if feature in features:
+				data.append(1 if features[feature] else 0)
+		return self.activeModel.predict([data])[0]
 
-	def _printer(self, model):
-		print("-"*100, ' (feature importance)')
-		self._printFeaturesImportance(model)
-		print("-"*100, ' (predictions)')
-		print(self._getPredictions(model, self.latestFile).to_string())
+	def _getFeaturesImportance(self):
+		importances = list(self.activeModel.feature_importances_)
+		feature_importances = [(feature, round(importance, 2)) for feature, importance in zip(self._getFeatures(), importances)]
+		feature_importances = sorted(feature_importances, key = lambda x: x[1], reverse = True)
+		return {pair[0]:pair[1] for pair in feature_importances}
 
 	def _loadHistory(self):
 		if self.historyData is None:
-			self.historyData = pandas.read_csv(self.historyFile)
+			self.historyData = pandas.read_csv(self.historyFile).query('days_diff >= 50')
 		return self.historyData
 
 	def _getFeatures(self):
@@ -45,9 +57,9 @@ class AI:
 
 	def _trainModel(self):
 		features = self._loadHistory().sample(n=self.sampleSize) if self.sampleSize else self._loadHistory()
-		features['has_growth'] = [1 if growth>0 else 0 for growth in features['growth_percent']]
+		features['has_growth'] = [1 if growth>5 else 0 for growth in features['growth_percent']]
 		labels = np.array(features['has_growth'])
-		features = features.drop('has_growth', axis = 1).drop('growth_percent', axis = 1)
+		features = features.drop(['has_growth', 'growth_percent', 'days_diff'], axis = 1)
 		features = np.array(features)
 		train_features, test_features, train_labels, test_labels = train_test_split(features, labels, test_size = 0.2, random_state = 1337)
 		model = RandomForestRegressor(n_estimators = 100, max_depth=15, min_samples_leaf=1,random_state = 1337).fit(train_features, train_labels)
@@ -57,8 +69,15 @@ class AI:
 		predictions = model.predict(test_features)
 		bar = 0.5
 		percentiles = [[0.05, 0.95], [0.1, 0.9], [0.15, 0.85], [0.2, 0.8], [bar, bar]]
+		self.modelInfo = {
+			'features':{
+				'train': len(train_features),
+				'test': len(test_features),
+			},
+			'training': {}
+		}
 		for percentile in percentiles:
-			hits_growth, actual_growth, hits_fall, actual_fall = 0, 0, 0, 0
+			hits_growth, actual_growth, hits_fall, actual_fall, total = 0, 0, 0, 0, 0
 			for i in range(0, len(predictions)):
 				# pass out of percentile values
 				if percentile[0]<=predictions[i]<=percentile[1]:
@@ -71,28 +90,16 @@ class AI:
 				if test_labels[i]==0:
 					hits_fall += 1 if predictions[i]<bar else 0
 					actual_fall += 1
-			print(f'Accuracy-{int(percentile[0]*100)} (true): {round(hits_growth/actual_growth, 4)}')
-			print(f'Accuracy-{int(percentile[0]*100)} (false):{round(hits_fall/actual_fall, 4)}')
+				total += 1
+			self.modelInfo['training'][str(int(percentile[0]*100))] = {
+				'growth': round(hits_growth/actual_growth, 4),
+				'fall': round(hits_fall/actual_fall, 4),
+				'hits_growth': hits_growth,
+				'hits_fall': hits_fall,
+				'total': total
+			}
 		return model
 
-	def _loadModel(self):
-		return joblib.load(self.modelFile)
-
-	def _printFeaturesImportance(self, model):
-		importances = list(model.feature_importances_)
-		feature_importances = [(feature, round(importance, 2)) for feature, importance in zip(self._getFeatures(), importances)]
-		feature_importances = sorted(feature_importances, key = lambda x: x[1], reverse = True)
-		[print('Variable: {:40} Importance: {}'.format(*pair)) for pair in feature_importances]
-
-	def _getPredictions(self, model, predictDataFile):
-		features = pandas.read_csv(predictDataFile)
-		features_without_meta = features.drop('ticker', axis = 1).drop('name', axis = 1)
-		features_without_meta = np.array(features_without_meta)
-		features['future_growth_prob'] = model.predict(features_without_meta)
-		features.drop(features.columns.difference(['ticker', 'name', 'future_growth_prob']), axis=1, inplace=True)
-		features.sort_values(by=['future_growth_prob'], inplace=True)
-		features.reset_index(drop=True, inplace=True)
-		return features
-
 if __name__ == '__main__':
-	AI(historyFile='history.csv', latestFile='latest.csv').printLatestPredictionsByHistory()
+	ai = AI.create(historyFile='history.csv', historySampleSize=700000, modelFile = 'ai_model.tmp.joblib')
+	ai.printModelInfo()
