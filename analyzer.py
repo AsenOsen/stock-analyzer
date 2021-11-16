@@ -449,14 +449,14 @@ class Report:
 			indicators = ' + '.join(item[1]['indicators'])
 			line += 1
 			lineStr = str(line) + '.'
-			print(f'{lineStr:5}. {ticker:5}[{indicatorsCount:2},{rating:3},{aiPrediction:4}] ({name:10}): {indicators}')
+			print(f'{lineStr:5} {ticker:5}[{indicatorsCount:2},{rating:3},{aiPrediction:4}] ({name:10}): {indicators}')
 		#
 		print(f'\n[{datetime.datetime.now()}]{"-"*100} (tickers top by predictions)\n')
 		line = 0
 		for item in sorted(predictions.items(), key=lambda x: x[1]):
 			line += 1
 			lineStr = str(line) + '.'
-			print(f'{lineStr:5}. {item[0]:5} ({str(latestIndicatorsData[item[0]]["name"]):40}) = {item[1]}')
+			print(f'{lineStr:5} {item[0]:5} ({str(latestIndicatorsData[item[0]]["name"]):40}) = {item[1]}')
 		# 
 		print(f'\n[{datetime.datetime.now()}]{"-"*100} (tickers top N best detected growth score)\n')
 		positiveGrowth = 0

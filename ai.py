@@ -71,6 +71,7 @@ class AI:
 		percentiles = [[0.05, 0.95], [0.1, 0.9], [0.15, 0.85], [0.2, 0.8], [bar, bar]]
 		self.modelInfo = {
 			'features':{
+				'total': len(features),
 				'train': len(train_features),
 				'test': len(test_features),
 			},
