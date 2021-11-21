@@ -124,28 +124,29 @@ class WallstApi(JsonApi):
 
 	# global siglethon cache
 	identity = None
-	score = None
+	data = None
 
 	def getIdentityByTicker(self, tickerName):
 		if self.identity == None:
-			body = '{"query":"%s"}' % (tickerName)
-			headers = {"x-algolia-api-key": "be7c37718f927d0137a88a11b69ae419", "x-algolia-application-id": "17IQHZWXZW"}
-			search = self._getJson('17iqhzwxzw-dsn.algolia.net','/1/indexes/companies/query', headers=headers, body = body)
-			for hit in search['hits']:
-				if hit['uniqueSymbol'].split(':')[1] == tickerName:
-					self.identity = hit['objectID']
-					break
-				for listing in hit['listings']:
-					if listing['uniqueSymbol'].split(':')[1] == tickerName:
+			for searchToken in [tickerName, f'NYSE:{tickerName}']:
+				body = '{"query":"%s"}' % (searchToken)
+				headers = {"x-algolia-api-key": "be7c37718f927d0137a88a11b69ae419", "x-algolia-application-id": "17IQHZWXZW"}
+				search = self._getJson('17iqhzwxzw-dsn.algolia.net','/1/indexes/companies/query', headers=headers, body = body)
+				for hit in search['hits']:
+					if hit['uniqueSymbol'].split(':')[1] == tickerName and hit['exchangeCountryIso'] == 'US':
 						self.identity = hit['objectID']
-						break
+						return self.identity
+					for listing in hit['listings']:
+						if listing['uniqueSymbol'].split(':')[1] == tickerName and hit['exchangeCountryIso'] == 'US':
+							self.identity = hit['objectID']
+							return self.identity
 		return self.identity
 
-	def getScore(self, tickerName):
+	def getFullData(self, tickerName):
 		identity = self.getIdentityByTicker(tickerName)
-		if self.score == None: 
-			self.score = self._getJson('api.simplywall.st', f'/api/company/{identity}?include=info%2Cscore%2Cscore.snowflake%2Canalysis.extended.raw_data%2Canalysis.extended.raw_data.insider_transactions&version=2.0')
-		return self.score
+		if self.data is None and identity is not None: 
+			self.data = self._getJson('api.simplywall.st', f'/api/company/{identity}?include=info%2Cscore%2Cscore.snowflake%2Canalysis.extended.raw_data%2Canalysis.extended.raw_data.insider_transactions&version=2.0')
+		return self.data
 
 
 class BeststocksApi(JsonApi):
@@ -285,10 +286,12 @@ class WebullApi(JsonApi):
 			self.responseInsiderInfo = self._getJson('quotes-gw.webullfintech.com','/api/information/company/queryInsiderDetail?tickerId=%s' % (tickerId))
 		return self.responseInsiderInfo
 
+	'''
 	def getDividendinfo(self, tickerId):
 		if self.responseDividends == None:
 			self.responseDividends = self._getJson('securitiesapi.webullfintech.com',f'/api/securities/stock/v5/{tickerId}/dividendes')
 		return self.responseDividends
+	'''
 
 
 class TickerInfo:
@@ -311,6 +314,15 @@ class TickerInfo:
 		self.stonks_api = StonksApi()
 		self.wallst_api = WallstApi()
 		self.beststocks_api = BeststocksApi()
+
+	def _getDeepFieldOrNone(self, obj:dict, fieldChain:list):
+		tmpObj = obj.copy()
+		for field in fieldChain:
+			if field in tmpObj:
+				tmpObj = tmpObj[field]
+			else:
+				return None
+		return tmpObj
 
 	def _callWithException(self, func):
 		try:
@@ -718,19 +730,37 @@ class TickerInfo:
 			info['insiders']['owend_%'] = float(data['owend'])
 
 	def fillDividendInfo(self, info):
-		data = self.webull_api.getDividendinfo(self.tickerId)
-		if data and 'plans' in data and len(data['plans'])>0:
-			latest = data['plans'][0]
-			if 'payDate' not in latest or 'perShare' not in latest:
-				raise Exception('fillDividendInfo: no data')
-			published = datetime.datetime.strptime(latest['payDate'], "%Y-%m-%d")
-			if published > (datetime.datetime.now() - datetime.timedelta(days=365)):
-				info['dividendes'] = {
-					'perShare_%': (float(latest['perShare'].split(' ')[1]) / info['currentCost'] * 100) if 'currentCost' in info and info['currentCost'] != 0 else None
-					}
+		now = datetime.datetime.now()
+		data = self.wallst_api.getFullData(self.tickerName)
+		future = self._getDeepFieldOrNone(data, ['data','analysis','data','extended','data','raw_data','data','dividend','next'])
+		past = self._getDeepFieldOrNone(data, ['data','analysis','data','extended','data','raw_data','data','dividend','past'])
+		annualYield = self._getDeepFieldOrNone(data, ['data','analysis','data','extended','data','analysis','dividend','dividend_yield'])
+		past = list(past.values()) if past else []
+		future = future if isinstance(future, dict) else {}
+		dividendHistory = past + [future]
+		paying_dividends, upcoming_date, upcoming_amount = False, None, None
+		for dividendRecord in dividendHistory:
+			if 'date' not in dividendRecord:
+				continue
+			date = datetime.datetime.fromtimestamp(int(dividendRecord.get('date')/1000))
+			# upcoming: only one date can exist
+			if now < date < (now + datetime.timedelta(days=30)):
+				upcoming_date, upcoming_amount = dividendRecord.get('date'), dividendRecord.get('amount')
+			# is paying at all?
+			if (now - datetime.timedelta(days=365)) < date < (now + datetime.timedelta(days=30)):
+				paying_dividends = True
+		info['dividend'] = {
+			'upcoming':{
+				'date': datetime.datetime.fromtimestamp(int(upcoming_date/1000)) if upcoming_date else None,
+				'amount': upcoming_amount,
+				'yeild': (upcoming_amount/info['currentCost']) if upcoming_amount else None,
+			},
+			'annualYield': annualYield if paying_dividends else None,
+			'has': paying_dividends
+		}
 
 	def fillWallstAnalytics(self, info):
-		data = self.wallst_api.getScore(self.tickerName)
+		data = self.wallst_api.getFullData(self.tickerName)
 		score = data.get('data', {}).get('score', {}).get('data', None)
 		if score is None:
 			raise Exception('fillWallstAnalytics: no score data')

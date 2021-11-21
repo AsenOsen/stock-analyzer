@@ -27,6 +27,7 @@ class Storage:
 class Indicators():
 
 	def __init__(self, date):
+		self.date = date
 		self.selector = Storage(date)
 
 	# treat
@@ -206,7 +207,15 @@ class Indicators():
 	def getDividendsPaying(self):
 		return self.selector.select(
 			{
-				'dividendes.perShare_%':{'$exists':True, '$gt':0}
+				'dividend.has':True
+			}
+		)
+
+	# treat
+	def getDividendsSoon(self):
+		return self.selector.select(
+			{
+				'dividend.upcoming.date':{"$gt": self.date, "$lte": self.date+datetime.timedelta(days=30)}
 			}
 		)
 
@@ -310,6 +319,7 @@ class Indicators():
 			'getGoodScoreWallst': {'in':'Высокая оценка независимым аналитическим сервисом simplywall.st', 'out':'Невысокая оценка независимым аналитическим сервисом simplywall.st'},
 			'getGoodScoreBeststocks': {'in':'Высокая оценка независимым аналитическим сервисом beststocks.ru', 'out':'Невысокая оценка независимым аналитическим сервисом beststocks.ru'},
 			#
+			'getDividendsSoon': {'in':'Скоро дивиденды', 'out':'Дивиденды не намечаются', 'neutral':True},
 			'getResistance5dayBreakout': {'in':'Прорыв линии сопротивления за последние 5 дней', 'out':'Не было прорыва линии сопротивления за последние 5 дней', 'neutral':True},
 			'getMoneyFlowIn': {'in':'Акции чаще покупают, чем продают', 'out':'Акции чаще продают, чем покупают'},
 			'getTechnicallyGood': {'in':'Технически сильная (хорошие показатели PE/EPS)', 'out':'Технически слабая (плохие показатели PE/EPS)'},
