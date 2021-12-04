@@ -58,7 +58,7 @@ class StockbeepApi(JsonApi):
 
 	def getBreakoutStocks(self):
 		if StockbeepApi.breakouts == None:
-			StockbeepApi.breakouts = self._getJson('stockbeep.com', f'/table-data/breakout-stocks?country=us&time-zone=-180&sort-column=sd&sort-order=desc&_={int(time.time()*1000)}')
+			StockbeepApi.breakouts = self._getJson('stockbeep.com', f'/table-data/range-breakout-stocks?country=us&time-zone=-180&sort-column=sd&sort-order=desc&_={int(time.time()*1000)}')
 		return StockbeepApi.breakouts
 
 	def getTrendingStocks(self):
@@ -732,6 +732,8 @@ class TickerInfo:
 	def fillDividendInfo(self, info):
 		now = datetime.datetime.now()
 		data = self.wallst_api.getFullData(self.tickerName)
+		if data is None:
+			raise Exception('fillDividendInfo: no data')
 		future = self._getDeepFieldOrNone(data, ['data','analysis','data','extended','data','raw_data','data','dividend','next'])
 		past = self._getDeepFieldOrNone(data, ['data','analysis','data','extended','data','raw_data','data','dividend','past'])
 		annualYield = self._getDeepFieldOrNone(data, ['data','analysis','data','extended','data','analysis','dividend','dividend_yield'])
@@ -761,9 +763,11 @@ class TickerInfo:
 
 	def fillWallstAnalytics(self, info):
 		data = self.wallst_api.getFullData(self.tickerName)
+		if data is None:
+			raise Exception('fillWallstAnalytics: no data')
 		score = data.get('data', {}).get('score', {}).get('data', None)
 		if score is None:
-			raise Exception('fillWallstAnalytics: no score data')
+			raise Exception('fillWallstAnalytics: no score')
 		info['wallstAnalytics'] = {
 			'unfairValueRatio': int(score['value']) / 6.0,
 			'futurePerformanceRatio': int(score['future']) / 6.0,
