@@ -1,0 +1,11 @@
+### Топ по весу положительных признаков:
+{% for item in topByPlace %}
+	{{ item.place }}. [{{ item.pluses }}] <b>{{ item.ticker }}</b> ({{ item.name }})
+{%- endfor %}
+
+### Топ по вероятности дальнейшего роста:
+{% for item in topByPrediction %}
+	[{{ item.prediction }}%] <b>{{ item.ticker }}</b> ({{ item.name }})
+{%- endfor %}
+
+Для получения другого количества акций из топа, добавьте к команде число (не больше 20). Например: <code>/top 5</code> или <code>/top 20</code>.

@@ -29,6 +29,13 @@ def render_ticker_report(ticker):
     return _render_template('ticker', ticker=ticker, name=report['name'], place=report['place'], total=report['total'], 
         pluses=report['pluses'], neutrals=report['neutrals'], minuses=report['minuses'], growth_prediction=round(report['prediction']*100))
 
+def render_top_report(count):
+    topByPlace = sorted(stocksData.items(), key=lambda item: item[1]['place'])[:count]
+    topByPlace = [{'ticker':item[0], 'name':item[1]['name'], 'place':item[1]['place'], 'pluses':len(item[1]['pluses'])} for item in topByPlace]
+    topByPrediction = sorted(stocksData.items(), key=lambda item: item[1]['prediction'], reverse=True)[:count]
+    topByPrediction = [{'ticker':item[0], 'name':item[1]['name'], 'prediction':round(item[1]['prediction']*100, 2)} for item in topByPrediction]
+    return _render_template('top', topByPlace=topByPlace, topByPrediction=topByPrediction)
+
 def ticker(update, context):
     logging.getLogger('TICKER').info(update)
     report = render_ticker_report(update.message.text)
@@ -40,6 +47,16 @@ def ticker(update, context):
         logging.getLogger('TICKER_RESULT').info('FAIL')
     update.message.reply_text(msg, parse_mode= 'HTML')
 
+def top(update, context):
+    count = 10
+    if len(context.args) > 0:
+        try:
+            count = min(int(context.args[0]), 20)
+        except:
+            count = 10
+    logging.getLogger('TOP').info(update)
+    update.message.reply_text(render_top_report(count), parse_mode= 'HTML')
+
 def error(update, context):
     logging.getLogger('ERROR').warning('Update "%s" caused error "%s"', update, context.error)
 
@@ -48,6 +65,7 @@ def startBot(token:str):
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
+    dp.add_handler(CommandHandler("top", top))
     dp.add_handler(MessageHandler(Filters.text, ticker))
     dp.add_error_handler(error)
     updater.start_polling()

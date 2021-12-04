@@ -16,4 +16,6 @@
 	🔴 {{ minus }}
 {%- endfor %}
 
+Узнать актуальный топ акций - /top
+
 (Голосуйте за самый важный признак - https://docs.google.com/forms/d/1Uv6WCakrSPrR5YnKRFUFv84NatPYkIsPtg1zPsqhJcA)
