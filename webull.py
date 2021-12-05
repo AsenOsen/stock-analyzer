@@ -10,6 +10,8 @@ import pprint
 import tabulate
 import textwrap
 import urllib3
+from bs4 import BeautifulSoup
+import re
 
 class HttpApi:
 
@@ -75,7 +77,6 @@ class OpeninsiderApi(HttpApi):
 	def getLastWeekPurchases(self):
 		if OpeninsiderApi.lastweekpurchases == None:
 			OpeninsiderApi.lastweekpurchases = self.request('openinsider.com', '/top-insider-purchases-of-the-week', protocol='http://')
-		from bs4 import BeautifulSoup
 		soup = BeautifulSoup(OpeninsiderApi.lastweekpurchases, 'lxml')
 		table = soup.find_all("table", {"class": "tinytable"})
 		tickerStat = {}
@@ -92,6 +93,20 @@ class OpeninsiderApi(HttpApi):
 			tickerStat[ticker]['qty'] = tickerStat[ticker]['qty']+qty if 'qty' in tickerStat[ticker] else qty
 		return tickerStat
 
+
+# unused!
+class ShortqueezeApi(HttpApi):
+
+	shortData = None
+
+	def getShortData(self, ticker):
+		data = {}
+		if self.shortData is None:
+			self.shortData = str(self.request('shortsqueeze.com', f'?symbol={ticker}&submit=Short+Quote%E2%84%A2', protocol='http://')).replace('\n','')
+		data['sharesRatio'] = float(re.search(r'Short Percent of Float.*?bgcolor="#CCFFCC" class="style12"\>(.*?)\<', self.shortData).group(1).replace(' ', '').replace('%', ''))
+		data['daysToCover'] = float(re.search(r'Short Interest Ratio \(Days To Cover\).*?bgcolor="#CCFFCC" class="style12"\>(.*?)\<', self.shortData).group(1).replace(' ', ''))
+		data['sharesCount'] = int(re.search(r'Short Interest \(Current Shares Short\).*?bgcolor="#CCFFCC" class="style12"\>(.*?)\<', self.shortData).group(1).replace(' ', '').replace(',', ''))
+		return data
 
 class StonksApi(JsonApi):
 
