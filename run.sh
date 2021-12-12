@@ -1,6 +1,8 @@
 reset
 # collect data
+echo $(date) crawling started
 python3 webull.py crawl "$1"
+echo $(date) crawling finished
 # create report
 echo $(date) report started
 python3 -u analyzer.py report > ./report

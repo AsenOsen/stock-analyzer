@@ -100,6 +100,19 @@ class Indicators():
 				'pe': {'$exists':True, '$lte': 30, '$gte': 0},
 				'eps':{'$exists':True, '$gte':0},
 			}
+		)	
+
+	# treat
+	def getTechnicalAnalysisGood(self):
+		return self.selector.select(
+			{
+				'technical.ta.day.oscillators':{'$exists':True, '$gt': 0},
+				'technical.ta.day.summary':{'$exists':True, '$gt': 0},
+				'technical.ta.day.ma':{'$exists':True, '$gt': 0},
+				'technical.ta.week.oscillators':{'$exists':True, '$gt': 0},
+				'technical.ta.week.summary':{'$exists':True, '$gt': 0},
+				'technical.ta.week.ma':{'$exists':True, '$gt': 0},
+			}
 		)		
 
 	# treat: cost trend worse than revenue trend
@@ -326,6 +339,7 @@ class Indicators():
 			'getOccupationGrowthBegan': {'in':'Замечен скачек захвата доли рынка за последний год', 'out':'За последний год не было скачка захвата доли рынка'},
 			'getAggressor': {'in':'Агрессор (активно наращивает прибыль и забирает долю рынка)', 'out':'Заторможенность (не активно наращивает прибыль и долю рынка)'},
 			# positve behaviour
+			'getTechnicalAnalysisGood': {'in':'Технический анализ рекомендует покупать', 'out':'Технический анализ не рекомендует покупать'},
 			'getOptionsPositive': {'in':'На 100% бычий настрой по опционам', 'out':'Нет на 100% бычьего настроя по опционам', 'neutral':True},
 			'getGoodNewsBackground': {'in':'Позитивный новостной фон', 'out':'Нет позитивного новостного фона', 'neutral':True},
 			# independent analitycs postitive

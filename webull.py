@@ -108,6 +108,7 @@ class ShortqueezeApi(HttpApi):
 		data['sharesCount'] = int(re.search(r'Short Interest \(Current Shares Short\).*?bgcolor="#CCFFCC" class="style12"\>(.*?)\<', self.shortData).group(1).replace(' ', '').replace(',', ''))
 		return data
 
+
 class StonksApi(JsonApi):
 
 	# global siglethon cache
@@ -133,6 +134,31 @@ class StonksApi(JsonApi):
 		if StonksApi.robinhood == None:
 			StonksApi.robinhood = self._getJson('stonks.news', f'/_next/data/{self._getBuildId()}/top-100/robinhood.json')
 		return StonksApi.robinhood
+
+class TradingviewApi(JsonApi):
+
+	# ta data
+	ta = None
+
+	def _getTechnicalAnalysisDataInternal(self, exchangeCode, tickerName, week=False, day=False):
+		suffix = '|1W' if week else ''
+		columns = f'"Recommend.Other{suffix}","Recommend.All{suffix}","Recommend.MA{suffix}"'
+		ticker = f"{exchangeCode}:{tickerName}"
+		body = '{"symbols":{"tickers":["%s"],"query":{"types":[]}},"columns":[%s]}' % (ticker, columns)
+		response = self._getJson('scanner.tradingview.com','/america/scan', body = body)
+		if 'data' in response and len(response['data'])==1:
+			return response['data'][0]['d']
+		return None
+
+	def getTechnicalAnalysisData(self, exchangeCode, tickerName):
+		if self.ta is None:
+			responseDay = self._getTechnicalAnalysisDataInternal(exchangeCode, tickerName, day=True)
+			responseWeek = self._getTechnicalAnalysisDataInternal(exchangeCode, tickerName, week=True)
+			self.ta = {
+				'day': {'oscillators':responseDay[0],'summary':responseDay[1],'ma':responseDay[2]} if responseDay else None,
+				'week': {'oscillators':responseWeek[0],'summary':responseWeek[1],'ma':responseWeek[2]} if responseWeek else None,
+			}
+		return self.ta
 
 
 class WallstApi(JsonApi):
@@ -319,16 +345,17 @@ class TickerInfo:
 	stonks_api = None
 	wallst_api = None
 	beststocks_api = None
+	tradingview_api = None
 
 	def __init__(self, tickerName):
-		# webull interprets "." as " "
-		self.tickerName = tickerName.replace('.',' ')
+		self.tickerName = tickerName
 		self.webull_api = WebullApi()
 		self.stockbeep_api = StockbeepApi()
 		self.openinsider_api = OpeninsiderApi()
 		self.stonks_api = StonksApi()
 		self.wallst_api = WallstApi()
 		self.beststocks_api = BeststocksApi()
+		self.tradingview_api = TradingviewApi()
 
 	def _getDeepFieldOrNone(self, obj:dict, fieldChain:list):
 		tmpObj = obj.copy()
@@ -346,11 +373,12 @@ class TickerInfo:
 			print(f"{type(e).__name__} | {e}:{e.__traceback__.tb_next.tb_next.tb_lineno}")
 
 	def loadInternal(self):
-		data = self.webull_api.getSearchList(self.tickerName)
+		webullTickerName = self.tickerName.replace('.',' ') # webull interprets "." as " "
+		data = self.webull_api.getSearchList(webullTickerName) 
 		if 'stocks' not in data:
 			raise Exception('ticker not found')
 		for item in data['stocks']['datas']:
-			if item['ticker']['symbol'] == self.tickerName and item['ticker']['template'] == 'stock' and item['ticker']['regionCode'] == "US":
+			if item['ticker']['symbol'] == webullTickerName and item['ticker']['template'] == 'stock' and item['ticker']['regionCode'] == "US":
 				self.tickerId = item['id']
 				break
 		if not self.tickerId:
@@ -390,10 +418,12 @@ class TickerInfo:
 			raise Exception('fillCapitalFlow: unknown current cost')
 		info['currentCost'] = float(data['close'])
 		info['name'] = data['name']
+		info['exchangeCode'] = data['disExchangeCode']
 		info['totalShares'] = int(data['totalShares']) if 'totalShares' in data else None
 		info['pe'] = float(data['peTtm']) if 'peTtm' in data else None  # Trailing Twelve Months
 		info['eps'] = float(data['epsTtm']) if 'epsTtm' in data else None # Trailing Twelve Months
 		info['closenessToHighest'] = info['currentCost'] / float(data['fiftyTwoWkHigh'])  if 'fiftyTwoWkHigh' in data else None
+		info['closenessToLowest'] = float(data['fiftyTwoWkLow']) / info['currentCost']  if 'fiftyTwoWkLow' in data and info['currentCost']>0 else None
 		info['heldSharesRatio'] = float(data['outstandingShares'])/int(data['totalShares']) if 'outstandingShares' in data else None
 
 	def fillTickerFinancials(self, info):
@@ -720,9 +750,9 @@ class TickerInfo:
 					}
 
 	def fillTechnicalAnal(self, info):
+		# breakouts
 		data = self.stockbeep_api.getBreakoutStocks()
-		if not 'technical' in info:
-			info['technical'] = {}
+		info['technical'] = {}
 		for stock in data['data']:
 			# <a href> tag parse
 			if f">{self.tickerName}<" in stock['sscode']:
@@ -732,6 +762,8 @@ class TickerInfo:
 			# <a href> tag parse
 			if f">{self.tickerName}<" in stock['sscode']:
 				info['technical']['trend_comment'] = stock['sscomment'] 
+		# technical analysis
+		info['technical']['ta'] = self.tradingview_api.getTechnicalAnalysisData(info['exchangeCode'], self.tickerName)
 
 	def fillInsiderPurchases(self, info):
 		data = self.openinsider_api.getLastWeekPurchases()
