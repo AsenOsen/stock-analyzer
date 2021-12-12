@@ -814,7 +814,8 @@ class TickerInfo:
 				'hedge': fullStats['analysis']['hedgeFundTrend'],
 				'hedgeLastQuaterStocks': fullStats['analysis']['hedgeFundTrendValue'],
 				'technical': fullStats['analysis']['sma'],
-				'fundamental': fullStats['analysis']['fundamentalsReturnOnEquity']
+				'fundamental': fullStats['analysis']['fundamentalsReturnOnEquity'],
+				'putCallRatio': fullStats['statistic']['putCallRatio']
 			}
 		except:
 			print("Exception | fillBeststocksAnalytics: could not extract full stats from beststocks")

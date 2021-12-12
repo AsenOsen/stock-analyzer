@@ -288,6 +288,18 @@ class Indicators():
 			}
 		)
 
+	def getOversold(self):
+		return self.selector.select(
+			{
+				'wallstAnalytics.unfair_discountPercents':{'$exists':True, '$gt':10},
+				'holders.profitableSharesRatio':{'$exists':True, '$lte':0.75}, 
+				'holders.avgCostToCurrentRatio':{'$exists':True, '$gt':1.05},
+				'trend.currentCostToFareTrend1YRatio':{'$exists':True, '$lt':0.97}, 
+				'trend.currentCostToFareTrend5YRatio':{'$exists':True, '$lt':0.97},
+				'closenessToHighest':{'$exists':True, '$lte':0.85}
+			}
+		)
+
 	# treat: technical
 	def _any_(self):
 		return self.selector.select({})
@@ -300,15 +312,16 @@ class Indicators():
 			'getOccupationGrowing': {'in':'Стабильно захватывает долю рынка (выручка растет из года в год)', 'out':'Стагнирует (выручка не растет из года в год)'},
 			'getProfitable': {'in':'Прибыльная', 'out':'Убыточная'},
 			# company fall recently
-			'getFallen': {'in':'Упала относительно хаев за последний год', 'out':'Близко к хаям за последний год'},
-			'getHoldersInLoss': {'in':'Много держателей в минусе', 'out':'Много держателей в плюсе'},
+			'getOversold': {'in':'Перепродана', 'out':'Не является перепроданной', 'neutral':True},
+			'getFallen': {'in':'Упала относительно хаев за последний год (минимум на 15%)', 'out':'Близко к хаям за последний год'},
+			'getHoldersInLoss': {'in':'Много держателей в минусе (больше 50%)', 'out':'Много держателей в плюсе'},
 			'getCostBelowFareCost': {'in':'Цена ниже справедливой (той, что должна быть согласно тренду)', 'out':'Цена выше справедливой (той, что должна быть согласно тренду)'},
 			'getDevelopingUnderestimated': {'in':'Недооценена (прибыль растет быстрее цены)', 'out':'Переоценена (цена растет быстрее прибыли)'},
 			# smart heads interested in company
 			'getInsiderBuying': {'in':'Закупаются инсайдеры', 'out':'Инсайдеры не закупались за последнее время', 'neutral':True},
 			'getTopInvestorsBuying': {'in':'Закупаются лучшие инвесторы', 'out':'Лучшие инвесторы не закупались за последнее время', 'neutral':True},
 			'getBigFishesBuying': {'in':'Закупаются крупные игроки', 'out':'Крупные игроки не закупались за последнее время', 'neutral':True},
-			'getAnalyticsRecommendBuy': {'in':'Уверенные рекомендации к покупке от большинства аналитиков', 'out':'Нет уверенных рекомендации к покупке от большинства аналитиков'},
+			'getAnalyticsRecommendBuy': {'in':'Уверенные рекомендации к покупке от большинства аналитиков (минимум 70% рекомендуют к покупке)', 'out':'Нет уверенных рекомендации к покупке от большинства аналитиков'},
 			# company continues growing
 			'getOccupationGrowthBegan': {'in':'Замечен скачек захвата доли рынка за последний год', 'out':'За последний год не было скачка захвата доли рынка'},
 			'getAggressor': {'in':'Агрессор (активно наращивает прибыль и забирает долю рынка)', 'out':'Заторможенность (не активно наращивает прибыль и долю рынка)'},
@@ -322,7 +335,7 @@ class Indicators():
 			'getDividendsSoon': {'in':'Скоро дивиденды', 'out':'Дивиденды не намечаются', 'neutral':True},
 			'getResistance5dayBreakout': {'in':'Прорыв линии сопротивления за последние 5 дней', 'out':'Не было прорыва линии сопротивления за последние 5 дней', 'neutral':True},
 			'getMoneyFlowIn': {'in':'Акции чаще покупают, чем продают', 'out':'Акции чаще продают, чем покупают'},
-			'getTechnicallyGood': {'in':'Технически сильная (хорошие показатели PE/EPS)', 'out':'Технически слабая (плохие показатели PE/EPS)'},
+			'getTechnicallyGood': {'in':'Хорошие показатели PE и EPS', 'out':'Плохие показатели PE и EPS'},
 			'getTightShorts': {'in':'Большой объем открытых шорт-позиций', 'out':'Нет большого объема открытых шорт-позиций', 'neutral':True},
 			'getDividendsPaying': {'in':'Платит дивиденды', 'out':'Не платит дивиденды', 'neutral':True},
 			'getHyped': {'in':'Хайповая', 'out':'Не хайповая', 'neutral':True},
