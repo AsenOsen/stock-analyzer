@@ -912,7 +912,7 @@ class Storage:
 	def __init__(self):
 		self.client = pymongo.MongoClient('localhost', 27017)
 		self.db = self.client.webull
-		collectionName = datetime.datetime.now().strftime('tickers_%G_%m_%d')
+		collectionName = datetime.datetime.now().strftime('tickers_%Y_%m_%d')
 		self.collection = self.db[collectionName]
 		self.collection.create_index("ticker", unique=True)
 

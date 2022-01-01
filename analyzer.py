@@ -10,7 +10,7 @@ class Storage:
 	def __init__(self, date):
 		client = pymongo.MongoClient('localhost', 27017)
 		db = client.webull
-		self.collectionName = date.strftime('tickers_%G_%m_%d')
+		self.collectionName = date.strftime('tickers_%Y_%m_%d')
 		if self.collectionName in db.list_collection_names():
 			self.collection = db[self.collectionName]
 		else:
@@ -106,12 +106,12 @@ class Indicators():
 	def getTechnicalAnalysisGood(self):
 		return self.selector.select(
 			{
-				'technical.ta.day.oscillators':{'$exists':True, '$gt': 0},
-				'technical.ta.day.summary':{'$exists':True, '$gt': 0},
-				'technical.ta.day.ma':{'$exists':True, '$gt': 0},
-				'technical.ta.week.oscillators':{'$exists':True, '$gt': 0},
-				'technical.ta.week.summary':{'$exists':True, '$gt': 0},
-				'technical.ta.week.ma':{'$exists':True, '$gt': 0},
+				'technical.ta.day.oscillators':{'$exists':True, '$gte': 0},
+				'technical.ta.day.summary':{'$exists':True, '$gte': 0},
+				'technical.ta.day.ma':{'$exists':True, '$gte': 0},
+				'technical.ta.week.oscillators':{'$exists':True, '$gte': 0},
+				'technical.ta.week.summary':{'$exists':True, '$gte': 0},
+				'technical.ta.week.ma':{'$exists':True, '$gte': 0},
 			}
 		)		
 
