@@ -522,8 +522,9 @@ class UserInterface:
 			self.latestdata(self.args.filename)
 
 	def report(self, without_history):
-		date_from = datetime.datetime(2021,6,27)
+		#date_from = datetime.datetime(2021,6,27)
 		#date_till= datetime.datetime(2021,11,3)
+		date_from = datetime.datetime.now() - datetime.timedelta(days=150)
 		date_till = datetime.datetime.now()
 		report = Report()
 		if without_history:
