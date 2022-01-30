@@ -3,7 +3,7 @@ import json
 import datetime
 import time
 import pymongo
-import statistics
+import scipy.stats
 import numpy
 import argparse
 import pprint
@@ -432,19 +432,31 @@ class TickerInfo:
 			raise Exception('fillTickerFinancials: missing all info')
 		incomeData = data['simpleStatement'][0]
 		if incomeData['title'] == 'Income Statement':
+			revenue = [float(o['revenue']['value']) for o in incomeData['list'] if 'value' in o['revenue'] and float(o['revenue']['value'])!=0]
+			revenueDates = [datetime.datetime.timestamp(datetime.datetime.strptime(o['reportEndDate'], 'FY %Y') + datetime.timedelta(days=365)) for o in incomeData['list'] if 'value' in o['revenue'] and float(o['revenue']['value'])!=0]
+			revenueYoy = [float(o['revenue']['yoy']) for o in incomeData['list'] if 'yoy' in o['revenue'] and float(o['revenue']['yoy'])!=0]
+			revenueYoyDates = [datetime.datetime.timestamp(datetime.datetime.strptime(o['reportEndDate'], 'FY %Y') + datetime.timedelta(days=365)) for o in incomeData['list'] if 'yoy' in o['revenue'] and float(o['revenue']['yoy'])!=0]
+			operatingIncome = [float(o['operatingIncome']['value']) for o in incomeData['list'] if 'value' in o['operatingIncome'] and float(o['operatingIncome']['value'])!=0]
+			operatingIncomeDates = [datetime.datetime.timestamp(datetime.datetime.strptime(o['reportEndDate'], 'FY %Y') + datetime.timedelta(days=365)) for o in incomeData['list'] if 'value' in o['operatingIncome'] and float(o['operatingIncome']['value'])!=0]
+			operatingIncomeYoy = [float(o['operatingIncome']['yoy'])  for o in incomeData['list'] if 'yoy' in o['operatingIncome'] and float(o['operatingIncome']['yoy'])!=0]
+			operatingIncomeYoyDates = [datetime.datetime.timestamp(datetime.datetime.strptime(o['reportEndDate'], 'FY %Y') + datetime.timedelta(days=365)) for o in incomeData['list'] if 'yoy' in o['operatingIncome'] and float(o['operatingIncome']['yoy'])!=0]
+			netIncomeAfterTax = [float(o['netIncomeAfterTax']['value']) for o in incomeData['list'] if 'value' in o['netIncomeAfterTax'] and float(o['netIncomeAfterTax']['value'])!=0]
+			netIncomeAfterTaxDates = [datetime.datetime.timestamp(datetime.datetime.strptime(o['reportEndDate'], 'FY %Y') + datetime.timedelta(days=365)) for o in incomeData['list'] if 'value' in o['netIncomeAfterTax'] and float(o['netIncomeAfterTax']['value'])!=0]
+			netIncomeAfterTaxYoy = [float(o['netIncomeAfterTax']['yoy'])  for o in incomeData['list'] if 'yoy' in o['netIncomeAfterTax'] and float(o['netIncomeAfterTax']['yoy'])!=0]
+			netIncomeAfterTaxYoyDates = [datetime.datetime.timestamp(datetime.datetime.strptime(o['reportEndDate'], 'FY %Y') + datetime.timedelta(days=365)) for o in incomeData['list'] if 'yoy' in o['netIncomeAfterTax'] and float(o['netIncomeAfterTax']['yoy'])!=0]	
 			info['income'] = {
-				'revenueTrend': self.calcTrendSlope([float(o['revenue']['value']) for o in incomeData['list'] if 'value' in o['revenue']])[0],
-				'revenueTrendLatest': self.calcTrendSlope([float(o['revenue']['value']) for o in incomeData['list'] if 'value' in o['revenue']][-2:])[0],
-				'revenueYoyTrend': self.calcTrendSlope([float(o['revenue']['yoy']) for o in incomeData['list'] if 'yoy' in o['revenue']])[0],
-				'revenueYoyTrendLatest': self.calcTrendSlope([float(o['revenue']['yoy']) for o in incomeData['list'] if 'yoy' in o['revenue']][-2:])[0],
-				'operatingIncomeTrend': self.calcTrendSlope([float(o['operatingIncome']['value']) for o in incomeData['list'] if 'value' in o['operatingIncome']])[0],
-				'operatingIncomeTrendLatest': self.calcTrendSlope([float(o['operatingIncome']['value']) for o in incomeData['list'] if 'value' in o['operatingIncome']][-2:])[0],
-				'operatingIncomeYoyTrend': self.calcTrendSlope([float(o['operatingIncome']['yoy'])  for o in incomeData['list'] if 'yoy' in o['operatingIncome']])[0],
-				'operatingIncomeYoyTrendLatest': self.calcTrendSlope([float(o['operatingIncome']['yoy'])  for o in incomeData['list'] if 'yoy' in o['operatingIncome']][-2:])[0],
-				'netIncomeTrend': self.calcTrendSlope([float(o['netIncomeAfterTax']['value']) for o in incomeData['list'] if 'value' in o['netIncomeAfterTax']])[0],
-				'netIncomeTrendLatest': self.calcTrendSlope([float(o['netIncomeAfterTax']['value']) for o in incomeData['list'] if 'value' in o['netIncomeAfterTax']][-2:])[0],
-				'netIncomeYoyTrend': self.calcTrendSlope([float(o['netIncomeAfterTax']['yoy'])  for o in incomeData['list'] if 'yoy' in o['netIncomeAfterTax']])[0],
-				'netIncomeYoyTrendLatest': self.calcTrendSlope([float(o['netIncomeAfterTax']['yoy'])  for o in incomeData['list'] if 'yoy' in o['netIncomeAfterTax']][-2:])[0],
+				'revenueTrend': self.calcTrendSlope(revenueDates,revenue)[0],
+				'revenueTrendLatest': self.calcTrendSlope(revenueDates[-2:], revenue[-2:])[0],
+				'revenueYoyTrend': self.calcTrendSlope(revenueYoyDates, revenueYoy)[0],
+				'revenueYoyTrendLatest': self.calcTrendSlope(revenueYoyDates[-2:], revenueYoy[-2:])[0],
+				'operatingIncomeTrend': self.calcTrendSlope(operatingIncomeDates, operatingIncome)[0],
+				'operatingIncomeTrendLatest': self.calcTrendSlope(operatingIncomeDates[-2:], operatingIncome[-2:])[0],
+				'operatingIncomeYoyTrend': self.calcTrendSlope(operatingIncomeYoyDates, operatingIncomeYoy)[0],
+				'operatingIncomeYoyTrendLatest': self.calcTrendSlope(operatingIncomeYoyDates[-2:], operatingIncomeYoy[-2:])[0],
+				'netIncomeTrend': self.calcTrendSlope(netIncomeAfterTaxDates, netIncomeAfterTax)[0],
+				'netIncomeTrendLatest': self.calcTrendSlope(netIncomeAfterTaxDates[-2:], netIncomeAfterTax[-2:])[0],
+				'netIncomeYoyTrend': self.calcTrendSlope(netIncomeAfterTaxYoyDates, netIncomeAfterTaxYoy)[0],
+				'netIncomeYoyTrendLatest': self.calcTrendSlope(netIncomeAfterTaxYoyDates[-2:], netIncomeAfterTaxYoy[-2:])[0]
 				}
 			latest = incomeData['list'][len(incomeData['list'])-1]
 			try:
@@ -553,57 +565,52 @@ class TickerInfo:
 		self._callWithException(lambda: self.fillInstitutionDistribution(info))
 	'''
 
-	def calcTrendSlope(self, values):
-		if len(values)<2:
-			return (0, 0) 
-		# define the power of values by max value
-		extent = 0
-		maxValue = max(values)
-		while abs(maxValue) > 1:
-			maxValue /= 10
-			extent += 1
-		# scale all x/y-values between 0 and 1
-		values = [value/(10.0**extent) for value in values]
-		measures = [i*(1.0/len(values)) for i in range(0, len(values))]
-		# k
-		xs = numpy.array(measures, dtype=numpy.float64)
-		ys = numpy.array(values, dtype=numpy.float64)
-		k = (((statistics.mean(xs)*statistics.mean(ys)) - statistics.mean(xs*ys)) /
-		     ((statistics.mean(xs)**2) - statistics.mean(xs**2)))
+	def calcTrendSlope(self, timestamps, values, title = ''):
+		if len(values)<2 or len(values) != len(timestamps):
+			return (0,0)
 
-		# b: y = kx+b => b = y-kx => b = ys-k*xs => b = mean(ys[i]-k*xs[i])
-		b = statistics.mean([ys[i]-k*xs[i] for i in range(0, len(values))])
-		latestValue = k*xs[len(xs)-1]+b
-		latestValueTrendOffset = ys[len(ys)-1] / latestValue if not latestValue==0 else 0
+		# calculate growth related to start point
+		tsDecrease = timestamps[0]-10**7
+		xVals = numpy.array([(ts-tsDecrease)/(timestamps[0]-tsDecrease) for ts in timestamps])
+		yVals = numpy.array([value/values[0] for value in values])
+
+		regression = scipy.stats.linregress(xVals,yVals)
+		k = regression.slope
+		b = regression.intercept
+
+		latestValue = k*xVals[len(xVals)-1] + b
+		latestValueTrendOffset = yVals[len(yVals)-1] / latestValue if not latestValue==0 else 0
 
 		# look slope grapics
-		'''
-		from matplotlib import pyplot as plt 
-		plt.plot(xs,ys) 
-		trend = k * xs + b
-		plt.plot(xs,trend) 
-		plt.show()
-		'''
+		if title:
+			from matplotlib import pyplot as plt 
+			plt.plot(xVals,yVals) 
+			trend = k * xVals + b
+			plt.plot(xVals,trend)
+			plt.title(title) 
+			plt.show()
 		
 		return (k, latestValueTrendOffset)
 
 	def fillTrend(self, info):
 		data = self.webull_api.getTickerTrendLastYear(self.tickerId)
-		costYear = []
+		costYear = {'dates':[], 'values':[]}
 		for day in data['tickerKDatas']:
 			if day['forwardKData']:
-				costYear.insert(0, float(day['forwardKData']['close']))
+				costYear['dates'].insert(0, datetime.datetime.timestamp(datetime.datetime.strptime(day['tradeTime'], '%Y-%m-%dT%H:%M:%S.000+0000')))
+				costYear['values'].insert(0, float(day['forwardKData']['close']))
 		data = self.webull_api.getTickerTrendFiveYear(self.tickerId)
-		costAll = []
+		costAll = {'dates':[], 'values':[]}
 		latestCost = None
 		for day in data['tickerKDatas']:
 			if 'forwardKData' in day:
-				costAll.insert(0, float(day['forwardKData']['close']))
+				costAll['dates'].insert(0, datetime.datetime.timestamp(datetime.datetime.strptime(day['tradeTime'], '%Y-%m-%dT%H:%M:%S.000+0000')))
+				costAll['values'].insert(0, float(day['forwardKData']['close']))
 			if 'tradeTime' in day:
 				latestCost = datetime.datetime.strptime(day['tradeTime'].split("T")[0], "%Y-%m-%d")
 
-		trend1Y = self.calcTrendSlope(costYear)
-		trend5Y = self.calcTrendSlope(costAll)
+		trend1Y = self.calcTrendSlope(costYear['dates'], costYear['values'])
+		trend5Y = self.calcTrendSlope(costAll['dates'], costAll['values'])
 
 		info['trend'] = {
 			'costTrend1Y': trend1Y[0],

@@ -57,6 +57,7 @@ class Indicators():
 			{
 				'anal.buyCountRatio':{'$exists':True, '$gte':0.7}, 
 				'anal.buyCount':{'$exists':True, '$gte':5}, 
+				'anal.sellCount':{'$exists':True, '$eq':0},
 				'anal.targetCostToCurrentRatio':{'$exists':True, '$gt':1}, 
 			}
 		)
@@ -88,8 +89,8 @@ class Indicators():
 	def getStableGrowing(self):
 		return self.selector.select(
 			{
-				'trend.costTrend5Y':{'$exists':True, '$gt':0.01},
-				'trend.costTrend1Y':{'$exists':True, '$gt':0.01}
+				'trend.costTrend5Y':{'$exists':True, '$gt':0},
+				'trend.costTrend1Y':{'$exists':True, '$gt':0}
 			}
 		)
 
