@@ -2,6 +2,8 @@
 
 This is the advanced stock data crawler which crawls data by tickers from wide variety of external sources and aggregates all collected data into local MongoDB storage.
 
+Try it here - https://t.me/stocks_analyst_bot
+
 Current data sources:
 - https://www.webull.com
 - https://stockbeep.com
